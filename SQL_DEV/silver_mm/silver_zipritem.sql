@@ -11,6 +11,7 @@ WITH Ranked_Raw_Batch AS (
     WHERE 
         purchaserequisition IS NOT NULL 
         AND purchaserequisitionitem IS NOT NULL
+        AND isdeleted IS NULL
 )
 
 SELECT DISTINCT

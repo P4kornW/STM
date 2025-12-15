@@ -27,8 +27,10 @@ SELECT DISTINCT
     CAST(R.invoiceisexpected AS STRING) AS free_item,
     CAST(R.purchaserequisition AS STRING) AS purchaserequisition,
     CAST(R.purchaserequisitionitem AS STRING) AS purchaserequisitionitem,
+    CAST(R.purchasinginforecord AS STRING) AS purchasinginforecord,
     CAST(R.orderquantity AS DOUBLE) AS orderquantity,
-    CAST(R.taxcode AS STRING) AS taxcode,  
+    CAST(R.taxcode AS STRING) AS taxcode,
+    CAST(P.safetystockquantity AS DOUBLE) as safetystockquantity,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
@@ -36,8 +38,10 @@ SELECT DISTINCT
     R.changetype,
     current_timestamp() as last_modified_dt
 FROM Ranked_Raw_Batch R
-LEFT JOIN ziproduct P
-    ON R.material = P.product
 LEFT JOIN ziprduom U
-    ON P.product = U.product
+    ON R.material = U.product
+    AND R.orderquantityunit = U.alternativeunit
+LEFT JOIN ziprdplant P
+    ON R.material = P.product
+    AND R.plant = P.plant
 WHERE rn = 1
