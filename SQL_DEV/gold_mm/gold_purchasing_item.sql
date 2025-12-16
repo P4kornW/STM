@@ -43,7 +43,7 @@ silver_zipritem_cte AS (
 -- ),
 
 silver_ziinforecorgdata_cte AS (
-    SELECT 
+    SELECT -- <-- Purcharsing info record
         purchasinginforecord,
         plant,
         MAX(materialplanneddeliverydurn) AS materialplanneddeliverydurn,
@@ -53,7 +53,7 @@ silver_ziinforecorgdata_cte AS (
 ),
 
 silver_zipoapprov_cte AS (
-    SELECT 
+    SELECT -- <-- PO Approv
         purchasingdocument,
         approve_dt,
         isapprove
@@ -61,7 +61,7 @@ silver_zipoapprov_cte AS (
 ),
 
 silver_zmmpurchasingdoc_cte AS(
-    SELECT 
+    SELECT -- <-- PO Header
         purchasingdocument,
         purchasingdocumentcategory,
         purchasingdocumenttype,
@@ -77,6 +77,45 @@ silver_zmmpurchasingdoc_cte AS(
         purchasingdocumentcondition
     FROM silver_mm_zmmpurchasingdoc
 
+),
+
+silver_zipricingelement_cte AS (
+    SELECT -- <-- Pricing
+        pricingdocument,
+        pricingdocumentitem,
+
+        -- Clearance
+        SUM(
+            CASE WHEN conditiontype = 'ZCB1' 
+                 AND (conditioninactivereason IS NULL)
+                 THEN COALESCE(conditionamount, 0)
+                 ELSE 0
+            END
+        ) AS clearance_amount,
+
+        -- Discount
+        SUM(
+            CASE WHEN conditiontype = 'ZDB3'
+                 AND (conditioninactivereason IS NULL)
+                 THEN COALESCE(conditionamount, 0)
+                 ELSE 0
+            END
+        ) AS discount_amount,
+
+        -- Freight
+        SUM(
+            CASE WHEN conditiontype = 'ZFB3'
+                 AND (conditioninactivereason IS NULL)
+                 THEN COALESCE(conditionamount, 0)
+                 ELSE 0
+            END
+        ) AS freight_amount
+
+    FROM silver_mm_zipricingelement
+    -- WHERE isdelete = false
+    GROUP BY
+        pricingdocument,
+        pricingdocumentitem
 )
 
 
@@ -119,7 +158,12 @@ SELECT
 
     -- -- PO Approve
     a.approve_dt,
-    a.isapprove
+    a.isapprove,
+
+    -- -- Pricing
+    p.clearance_amount,
+    p.freight_amount,
+    p.discount_amount
 
     -- -- PR reference
     -- pr.purchaserequisition,
@@ -141,3 +185,6 @@ LEFT JOIN silver_zmmpurchasingdoc_cte d
 ON po.purchasingdocument = d.purchasingdocument
 LEFT JOIN silver_mm_zipoapprov a
 ON d.purchasingdocument = a.purchasingdocument
+LEFT JOIN silver_zipricingelement_cte p
+ON d.purchasingdocumentcondition = p.pricingdocument
+AND po.purchasingdocumentitem = p.pricingdocumentitem
