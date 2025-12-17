@@ -22,8 +22,9 @@ SELECT DISTINCT
     CAST(U.quantitynumerator AS DOUBLE) AS quantity_numerator,
     CAST(U.quantitydenominator AS DOUBLE) AS quantity_denominator,
     CAST(R.plant AS STRING) AS plant,
-    CAST(R.materialgroup AS STRING) AS materialgroup,
+    CAST(PR.productgroup AS STRING) AS materialgroup,
     CAST(R.orderquantityunit AS STRING) AS orderquantityunit,
+    CAST(PR.baseunit AS STRING) AS baseunit,
     CAST(R.invoiceisexpected AS STRING) AS free_item,
     CAST(R.purchaserequisition AS STRING) AS purchaserequisition,
     CAST(R.purchaserequisitionitem AS STRING) AS purchaserequisitionitem,
@@ -38,8 +39,10 @@ SELECT DISTINCT
     R.changetype,
     current_timestamp() as last_modified_dt
 FROM Ranked_Raw_Batch R
+LEFT JOIN ziproduct PR
+    ON R.material = PR.product
 LEFT JOIN ziprduom U
-    ON R.material = U.product
+    ON PR.product = U.product
     AND R.orderquantityunit = U.alternativeunit
 LEFT JOIN ziprdplant P
     ON R.material = P.product
