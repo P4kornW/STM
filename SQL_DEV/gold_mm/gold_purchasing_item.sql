@@ -10,6 +10,7 @@ WITH silver_zimmpurgdocitem_cte AS (
         plant,
         materialgroup,
         orderquantityunit,
+        baseunit,
         free_item,
         purchaserequisition,
         purchaserequisitionitem,
@@ -56,7 +57,10 @@ silver_zipoapprov_cte AS (
     SELECT -- <-- PO Approv
         purchasingdocument,
         approve_dt,
-        isapprove
+        isapprove,
+        approvercode,
+        approverdescription,
+        approveusername
     FROM silver_mm_zipoapprov
 ),
 
@@ -79,6 +83,43 @@ silver_zmmpurchasingdoc_cte AS(
 
 ),
 
+silver_zimmpurdochist_cte AS(
+    SELECT -- <-- PO History
+        purchasingdocument,
+        purchasingdocumentitem,
+
+        
+        SUM(
+            CASE
+                WHEN goodsmovementtype = '101'
+                THEN quantity
+                ELSE 0
+            END
+        ) AS gr_qty,
+
+        SUM(
+            CASE
+                WHEN goodsmovementtype = '101'
+                THEN purordamountincompanycodecrcy
+                ELSE 0
+            END
+        ) AS gr_value_thb,
+
+        SUM(
+            CASE
+                WHEN goodsmovementtype = '101'
+                THEN purchaseorderamount
+                ELSE 0
+            END
+        ) AS gr_value_pocurrency
+
+    
+    FROM silver_mm_zimmpurdochist
+    GROUP BY
+        purchasingdocument,
+        purchasingdocumentitem
+),
+
 silver_zipricingelement_cte AS (
     SELECT -- <-- Pricing
         pricingdocument,
@@ -88,7 +129,7 @@ silver_zipricingelement_cte AS (
         SUM(
             CASE WHEN conditiontype = 'ZCB1' 
                  AND (conditioninactivereason IS NULL)
-                 THEN COALESCE(conditionamount, 0)
+                 THEN conditionamount
                  ELSE 0
             END
         ) AS clearance_amount,
@@ -97,7 +138,7 @@ silver_zipricingelement_cte AS (
         SUM(
             CASE WHEN conditiontype = 'ZDB3'
                  AND (conditioninactivereason IS NULL)
-                 THEN COALESCE(conditionamount, 0)
+                 THEN conditionamount
                  ELSE 0
             END
         ) AS discount_amount,
@@ -106,10 +147,18 @@ silver_zipricingelement_cte AS (
         SUM(
             CASE WHEN conditiontype = 'ZFB3'
                  AND (conditioninactivereason IS NULL)
-                 THEN COALESCE(conditionamount, 0)
+                 THEN conditionamount
                  ELSE 0
             END
-        ) AS freight_amount
+        ) AS freight_amount,
+
+        SUM(
+            CASE
+                WHEN conditioninactivereason IS NULL
+                THEN conditionamount
+                ELSE 0
+            END
+        ) AS po_actual_value
 
     FROM silver_mm_zipricingelement
     -- WHERE isdelete = false
@@ -157,13 +206,30 @@ SELECT
     i.pricevalidityenddate,
 
     -- -- PO Approve
+    a.approvercode,
+    a.approverdescription,
+    a.approveusername,
     a.approve_dt,
     a.isapprove,
 
     -- -- Pricing
-    p.clearance_amount,
-    p.freight_amount,
-    p.discount_amount
+    COALESCE(p.clearance_amount,0) as total_clearance_amount,
+    COALESCE(p.freight_amount,0) as total_freight_amount,
+    COALESCE(p.discount_amount,0) as total_discount_amount,
+    COALESCE(p.po_actual_value,0) as total_po_actual_value,
+
+    -- -- Po history
+    COALESCE(h.gr_qty,0) as total_gr_qty,
+    COALESCE(h.gr_value_pocurrency,0) as total_gr_value_po_currency,
+    COALESCE(h.gr_value_thb,0) as total_gr_value_thb,
+    
+
+    -- Calculation
+    h.gr_value_thb / NULLIF(h.gr_qty,0) AS gr_value_per_unit,
+    po.orderquantity - COALESCE(h.gr_qty,0) as gr_quantity_remain,
+    (po.orderquantity * po.quantity_numerator) / po.quantity_denominator as material_quantity_conversion,
+    po.baseunit
+
 
     -- -- PR reference
     -- pr.purchaserequisition,
@@ -188,3 +254,6 @@ ON d.purchasingdocument = a.purchasingdocument
 LEFT JOIN silver_zipricingelement_cte p
 ON d.purchasingdocumentcondition = p.pricingdocument
 AND po.purchasingdocumentitem = p.pricingdocumentitem
+LEFT JOIN silver_zimmpurdochist_cte h
+ON po.purchasingdocument = h.purchasingdocument
+AND po.purchasingdocumentitem = h.purchasingdocumentitem
