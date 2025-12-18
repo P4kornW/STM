@@ -33,6 +33,7 @@ SELECT DISTINCT
     CAST(R.goodsmovementtype AS STRING) AS goodsmovementtype,
     to_date(R.postingdate, 'yyyyMMdd') AS postingdate,
     CAST(R.quantity AS DOUBLE) AS quantity,
+    CAST(R.debitcreditcode AS STRING) AS debitcreditcode,
     CAST(R.purordamountincompanycodecrcy AS DOUBLE) AS purordamountincompanycodecrcy,
     CAST(R.purchaseorderamount AS DOUBLE) AS purchaseorderamount,
     R.ingestiontime,
