@@ -19,6 +19,7 @@ SELECT DISTINCT
     CAST(R.purchaserequisitionitem AS STRING) AS purchaserequisitionitem,
     CAST(R.purchasingdocument AS STRING) AS purchasingdocument,
     CAST(R.purchasingdocumentitem AS STRING) AS purchasingdocumentitem,
+    CAST(R.purchasereqnitemuniqueid AS STRING) AS purchasereqnitemuniqueid,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
