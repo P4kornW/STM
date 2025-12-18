@@ -13,20 +13,25 @@ WITH Ranked_Raw_Batch AS (
 )
 
 SELECT
-    CAST(purchasingdocument AS STRING) AS purchasingdocument,
+    CAST(R.purchasingdocument AS STRING) AS purchasingdocument,
+    to_date(R.approvedate, 'yyyyMMdd') AS approvedate,
+    CAST(R.approvetime AS STRING) AS approvetime,
     TO_TIMESTAMP(
-        CONCAT(approvedate, approvetime),
+        CONCAT(R.approvedate, R.approvetime),
         'yyyyMMddHHmmss'
     ) AS approve_dt,
-    approvercode,
-    approveusername,
-    approverdescription,
-    CAST(isapprove AS STRING) AS isapprove,
-    ingestiontime,
-    isupsert,
-    isdelete,
-    isinsert,
-    changetype,
+    CAST(R.approvercode AS STRING) AS approvercode,
+    CAST(R.approveusername AS STRING) AS approveusername,
+    CAST(R.approverdescription AS STRING) AS approverdescription,
+    CAST(U.fullname AS STRING) AS approverfullname,
+    CAST(R.isapprove AS STRING) AS isapprove,
+    R.ingestiontime,
+    R.isupsert,
+    R.isdelete,
+    R.isinsert,
+    R.changetype,
     current_timestamp() AS last_modified_dt
 FROM Ranked_Raw_Batch R
+LEFT JOIN ziuser U
+    ON R.approveusername = U.userid
 WHERE rn = 1
