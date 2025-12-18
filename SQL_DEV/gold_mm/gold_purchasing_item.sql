@@ -1,5 +1,5 @@
 WITH silver_zimmpurgdocitem_cte AS (
-    SELECT -- <-- PO ITEM
+    SELECT
         purchasingdocument,
         purchasingdocumentitem,
         purchasingdocumentcategory,
@@ -18,54 +18,53 @@ WITH silver_zimmpurgdocitem_cte AS (
         orderquantity,
         taxcode,
         safetystockquantity
-        -- ingestiontime,
-        -- isupsert,
-        -- isdelete,
-        -- isinsert,
-        -- changetype
     FROM silver_mm_zimmpurgdocitem
---     WHERE isdelete = false
 ),
 
 silver_zipritem_cte AS (
-    SELECT -- <-- PR ITEM
+    SELECT
         purchasingdocument,
         purchasingdocumentitem,
         purchaserequisition,
-        purchaserequisitionitem
+        purchaserequisitionitem,
+        purchasereqnitemuniqueid
     FROM silver_mm_zipritem
 ),
 
--- silver_zigoodsmvmtdoc_cte AS (
+-- silver_ziinforecorgdata_cte AS (
 --     SELECT
---         purchaseorder,
---         purchaseorderitem
---     FROM silver_mm_zigoodsmvmtdoc
+--         purchasinginforecord,
+--         plant
+--         -- MAX(materialplanneddeliverydurn) AS materialplanneddeliverydurn,
+--         -- MAX(pricevalidityenddate) AS pricevalidityenddate
+--     FROM silver_mm_ziinforecorgdata
+--     -- GROUP BY purchasinginforecord, plant
 -- ),
 
-silver_ziinforecorgdata_cte AS (
-    SELECT -- <-- Purcharsing info record
-        purchasinginforecord,
-        plant,
-        MAX(materialplanneddeliverydurn) AS materialplanneddeliverydurn,
-        MAX(pricevalidityenddate) AS pricevalidityenddate
-    FROM silver_mm_ziinforecorgdata
-    GROUP BY purchasinginforecord,plant
-),
-
 silver_zipoapprov_cte AS (
-    SELECT -- <-- PO Approv
+    SELECT
         purchasingdocument,
         approve_dt,
         isapprove,
         approvercode,
         approverdescription,
-        approveusername
+        approveusername,
+        approverfullname
     FROM silver_mm_zipoapprov
 ),
 
-silver_zmmpurchasingdoc_cte AS(
-    SELECT -- <-- PO Header
+silver_ziprapprov_cte AS (
+    SELECT
+        tabkey,
+        purchasereqnitemuniqueid,
+        updatedate,
+        updatetime,
+        update_dt
+    FROM silver_mm_ziprapprov
+),
+
+silver_zmmpurchasingdoc_cte AS (
+    SELECT
         purchasingdocument,
         purchasingdocumentcategory,
         purchasingdocumenttype,
@@ -80,115 +79,106 @@ silver_zmmpurchasingdoc_cte AS(
         incotermsclassification,
         purchasingdocumentcondition
     FROM silver_mm_zmmpurchasingdoc
-
 ),
 
-silver_zimmpurdochist_cte AS(
-    SELECT -- <-- PO History
+/* =======================
+   PO HISTORY (SIGN + DECIMAL)
+   ======================= */
+silver_zimmpurdochist_cte AS (
+    SELECT
         purchasingdocument,
         purchasingdocumentitem,
 
-        
-        SUM(
-            CASE
-                WHEN goodsmovementtype = '101'
-                THEN quantity
+        CAST(SUM(
+            CASE -- GR Quantity
+                WHEN goodsmovementtype IN ('101','102') THEN
+                    CASE WHEN debitcreditcode = 'H' THEN -quantity ELSE quantity END
                 ELSE 0
             END
-        ) AS gr_qty,
+        ) AS DECIMAL(18,3)) AS gr_qty,
 
-        SUM(
-            CASE
-                WHEN goodsmovementtype = '101'
-                THEN purordamountincompanycodecrcy
-                ELSE 0
+        CAST(SUM(
+            CASE -- GR Value in THB
+                WHEN goodsmovementtype IN ('101','102') THEN
+                    CASE
+                        WHEN debitcreditcode = 'H'
+                            THEN -CAST(purordamountincompanycodecrcy AS DECIMAL(18,2))
+                        ELSE CAST(purordamountincompanycodecrcy AS DECIMAL(18,2))
+                    END
+                ELSE CAST(0 AS DECIMAL(18,2))
             END
-        ) AS gr_value_thb,
+        ) AS DECIMAL(18,2)) AS gr_value_thb,
 
-        SUM(
-            CASE
-                WHEN goodsmovementtype = '101'
-                THEN purchaseorderamount
-                ELSE 0
+        CAST(SUM(
+            CASE -- GR Value in PO Currency
+                WHEN goodsmovementtype IN ('101','102') THEN
+                    CASE WHEN debitcreditcode = 'H'
+                        THEN -CAST(purchaseorderamount AS DECIMAL(18,2))
+                        ELSE CAST(purchaseorderamount AS DECIMAL(18,2))
+                    END
+                ELSE CAST(0 AS DECIMAL(18,2))
             END
-        ) AS gr_value_pocurrency
+        ) AS DECIMAL(18,2)) AS gr_value_pocurrency
 
-    
     FROM silver_mm_zimmpurdochist
-    GROUP BY
-        purchasingdocument,
-        purchasingdocumentitem
+    GROUP BY purchasingdocument, purchasingdocumentitem
 ),
 
+/* =======================
+   PRICING ELEMENT
+   ======================= */
 silver_zipricingelement_cte AS (
-    SELECT -- <-- Pricing
+    SELECT
         pricingdocument,
         pricingdocumentitem,
 
-        -- Clearance
-        SUM(
-            CASE WHEN conditiontype = 'ZCB1' 
-                 AND (conditioninactivereason IS NULL)
-                 THEN conditionamount
-                 ELSE 0
-            END
-        ) AS clearance_amount,
+        CAST(SUM(
+            CASE WHEN conditiontype = 'ZCB1' -- Clearance
+                 AND conditioninactivereason IS NULL
+                 THEN conditionamount ELSE 0 END
+        ) AS DECIMAL(18,2)) AS clearance_amount,
 
-        -- Discount
-        SUM(
-            CASE WHEN conditiontype = 'ZDB3'
-                 AND (conditioninactivereason IS NULL)
-                 THEN conditionamount
-                 ELSE 0
-            END
-        ) AS discount_amount,
+        CAST(SUM(
+            CASE WHEN conditiontype = 'ZDB3' -- Discount
+                 AND conditioninactivereason IS NULL
+                 THEN conditionamount ELSE 0 END
+        ) AS DECIMAL(18,2)) AS discount_amount,
 
-        -- Freight
-        SUM(
-            CASE WHEN conditiontype = 'ZFB3'
-                 AND (conditioninactivereason IS NULL)
-                 THEN conditionamount
-                 ELSE 0
-            END
-        ) AS freight_amount,
+        CAST(SUM(
+            CASE WHEN conditiontype = 'ZFB3' -- Freight
+                 AND conditioninactivereason IS NULL
+                 THEN conditionamount ELSE 0 END
+        ) AS DECIMAL(18,2)) AS freight_amount,
 
-        SUM(
-            CASE
+        CAST(SUM(
+            CASE -- PO Actual Value
                 WHEN conditioninactivereason IS NULL
-                THEN conditionamount
-                ELSE 0
+                THEN conditionamount ELSE 0
             END
-        ) AS po_actual_value
+        ) AS DECIMAL(18,2)) AS po_actual_value
 
     FROM silver_mm_zipricingelement
-    -- WHERE isdelete = false
-    GROUP BY
-        pricingdocument,
-        pricingdocumentitem
+    GROUP BY pricingdocument, pricingdocumentitem
 )
 
-
 SELECT
-    -- -- PO Item
+    /* ========= PO ITEM ========= */
     po.purchasingdocument,
     po.purchasingdocumentitem,
     po.purchasingdocumentcategory,
     po.material,
     po.material_description,
-    po.quantity_numerator,
-    po.quantity_denominator,
     po.plant,
     po.materialgroup,
     po.orderquantityunit,
+    po.baseunit,
     po.free_item,
     po.purchaserequisition,
     po.purchaserequisitionitem,
-    po.purchasinginforecord,
     po.orderquantity,
     po.taxcode,
-    po.safetystockquantity,
 
-    -- -- PO Header
+    /* ========= PO HEADER ========= */
     d.purchasingdocumenttype,
     d.releasecode,
     d.supplier,
@@ -201,59 +191,71 @@ SELECT
     d.paymentterms,
     d.purchasingdocumentcondition,
 
-    -- -- InforecordORG
-    i.materialplanneddeliverydurn,
-    i.pricevalidityenddate,
+    /* ========= INFO RECORD ========= */
+    -- i.purchasinginforecord,
+    -- i.materialplanneddeliverydurn,
+    -- i.pricevalidityenddate,
 
-    -- -- PO Approve
+    /* ========= APPROVAL ========= */
     a.approvercode,
     a.approverdescription,
     a.approveusername,
+    a.approverfullname,
     a.approve_dt,
     a.isapprove,
 
-    -- -- Pricing
-    COALESCE(p.clearance_amount,0) as total_clearance_amount,
-    COALESCE(p.freight_amount,0) as total_freight_amount,
-    COALESCE(p.discount_amount,0) as total_discount_amount,
-    COALESCE(p.po_actual_value,0) as total_po_actual_value,
+    /* ========= PRICING ========= */
+    COALESCE(p.clearance_amount,0)     AS total_clearance_amount,
+    COALESCE(p.freight_amount,0)       AS total_freight_amount,
+    COALESCE(p.discount_amount,0)      AS total_discount_amount,
+    COALESCE(p.po_actual_value,0)      AS total_po_actual_value,
 
-    -- -- Po history
-    COALESCE(h.gr_qty,0) as total_gr_qty,
-    COALESCE(h.gr_value_pocurrency,0) as total_gr_value_po_currency,
-    COALESCE(h.gr_value_thb,0) as total_gr_value_thb,
-    
+    /* ========= GR HISTORY ========= */
+    COALESCE(h.gr_qty,0)               AS total_gr_qty,
+    COALESCE(h.gr_value_pocurrency,0)  AS total_gr_value_po_currency,
+    COALESCE(h.gr_value_thb,0)         AS total_gr_value_thb,
 
-    -- Calculation
-    h.gr_value_thb / NULLIF(h.gr_qty,0) AS gr_value_per_unit,
-    po.orderquantity - COALESCE(h.gr_qty,0) as gr_quantity_remain,
-    (po.orderquantity * po.quantity_numerator) / po.quantity_denominator as material_quantity_conversion,
-    po.baseunit
+    /* ========= CALCULATED (GOLD) ========= */
 
+    CAST(
+        CASE
+            WHEN h.gr_qty IS NULL OR h.gr_qty = 0 THEN NULL
+            ELSE h.gr_value_thb / h.gr_qty
+        END
+    AS DECIMAL(18,4)) AS gr_value_per_unit,
 
-    -- -- PR reference
-    -- pr.purchaserequisition,
-    -- pr.purchaserequisitionitem,
+    CAST(
+        po.orderquantity - COALESCE(h.gr_qty,0)
+    AS DECIMAL(18,3)) AS gr_quantity_remain,
 
-    -- current_timestamp() AS last_modified_dt
+    CAST(
+        CASE
+            WHEN po.quantity_numerator IS NULL
+              OR po.quantity_denominator IS NULL
+              OR po.quantity_denominator = 0
+            THEN NULL
+            ELSE (po.orderquantity * po.quantity_numerator) / po.quantity_denominator
+        END
+    AS DECIMAL(18,3)) AS material_quantity_conversion
+
+    /* ========= JOINS ========= */
 
 FROM silver_zimmpurgdocitem_cte po
 LEFT JOIN silver_zipritem_cte pr
-ON po.purchasingdocument = pr.purchasingdocument
-AND po.purchasingdocumentitem = pr.purchasingdocumentitem
--- LEFT JOIN silver_zigoodsmvmtdoc_cte m
--- ON po.purchasingdocument = m.purchaseorder
--- AND po.purchasingdocumentitem = m.purchaseorderitem
-LEFT JOIN silver_ziinforecorgdata_cte i
-ON po.purchasinginforecord = i.purchasinginforecord
-AND po.plant = i.plant
+    ON po.purchasingdocument = pr.purchasingdocument
+   AND po.purchasingdocumentitem = pr.purchasingdocumentitem
+LEFT JOIN silver_ziprapprov_cte ar
+    ON pr.purchasereqnitemuniqueid = ar.purchasereqnitemuniqueid
+-- LEFT JOIN silver_ziinforecorgdata_cte i
+--     ON po.purchasinginforecord = i.purchasinginforecord
+--    AND po.plant = i.plant
 LEFT JOIN silver_zmmpurchasingdoc_cte d
-ON po.purchasingdocument = d.purchasingdocument
-LEFT JOIN silver_mm_zipoapprov a
-ON d.purchasingdocument = a.purchasingdocument
+    ON po.purchasingdocument = d.purchasingdocument
+LEFT JOIN silver_zipoapprov_cte a
+    ON d.purchasingdocument = a.purchasingdocument
 LEFT JOIN silver_zipricingelement_cte p
-ON d.purchasingdocumentcondition = p.pricingdocument
-AND po.purchasingdocumentitem = p.pricingdocumentitem
+    ON d.purchasingdocumentcondition = p.pricingdocument
+   AND po.purchasingdocumentitem = p.pricingdocumentitem
 LEFT JOIN silver_zimmpurdochist_cte h
-ON po.purchasingdocument = h.purchasingdocument
-AND po.purchasingdocumentitem = h.purchasingdocumentitem
+    ON po.purchasingdocument = h.purchasingdocument
+   AND po.purchasingdocumentitem = h.purchasingdocumentitem
