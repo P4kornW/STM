@@ -27,6 +27,7 @@ SELECT DISTINCT
     CAST(R.materialdocumentkey6 AS STRING) AS materialdocumentkey6,
     CAST(R.purchaseorder AS STRING) AS purchaseorder,
     CAST(R.purchaseorderitem AS STRING) AS purchaseorderitem,
+    to_date(R.postingdate, 'yyyyMMdd') AS postingdate,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
