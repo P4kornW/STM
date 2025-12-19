@@ -34,9 +34,11 @@ silver_zipritem_cte AS (
 -- silver_ziinforecorgdata_cte AS (
 --     SELECT
 --         purchasinginforecord,
---         plant
---         -- MAX(materialplanneddeliverydurn) AS materialplanneddeliverydurn,
---         -- MAX(pricevalidityenddate) AS pricevalidityenddate
+--         plant,
+--         materialplanneddeliverydurn,
+--         pricevalidityenddate,
+--         lastreferencingpurchaseorder,
+--         lastreferencingpurorderitem
 --     FROM silver_mm_ziinforecorgdata
 --     -- GROUP BY purchasinginforecord, plant
 -- ),
@@ -44,6 +46,7 @@ silver_zipritem_cte AS (
 silver_zipoapprov_cte AS (
     SELECT
         purchasingdocument,
+        approvedate,
         approve_dt,
         isapprove,
         approvercode,
@@ -161,6 +164,47 @@ silver_zipricingelement_cte AS (
     GROUP BY pricingdocument, pricingdocumentitem
 )
 
+, latest_material_price_cte AS ( -- Latest Material Price per Unit
+    SELECT
+        material,
+        plant,
+        purchasingdocument,
+        purchasingdocumentitem,
+
+        CAST(
+            po_actual_value / NULLIF(orderquantity, 0)
+        AS DECIMAL(18,4)) AS latest_material_price_per_unit,
+
+        purchasingdocumentorderdate,
+
+        ROW_NUMBER() OVER (
+            PARTITION BY material, plant
+            ORDER BY purchasingdocumentorderdate DESC,
+                     purchasingdocument DESC,
+                     purchasingdocumentitem DESC
+        ) AS rn
+    FROM (
+        SELECT
+            po.material,
+            po.plant,
+            po.purchasingdocument,
+            po.purchasingdocumentitem,
+            po.orderquantity,
+            d.purchasingdocumentorderdate,
+            p.po_actual_value
+        FROM silver_zimmpurgdocitem_cte po
+        JOIN silver_zmmpurchasingdoc_cte d
+            ON po.purchasingdocument = d.purchasingdocument
+        JOIN silver_zipricingelement_cte p
+            ON d.purchasingdocumentcondition = p.pricingdocument
+           AND po.purchasingdocumentitem = p.pricingdocumentitem
+        WHERE
+            p.po_actual_value IS NOT NULL
+            AND po.orderquantity > 0
+    ) x
+)
+
+
 SELECT
     /* ========= PO ITEM ========= */
     po.purchasingdocument,
@@ -177,6 +221,8 @@ SELECT
     po.purchaserequisitionitem,
     po.orderquantity,
     po.taxcode,
+    po.purchasinginforecord,
+    
 
     /* ========= PO HEADER ========= */
     d.purchasingdocumenttype,
@@ -191,18 +237,25 @@ SELECT
     d.paymentterms,
     d.purchasingdocumentcondition,
 
-    /* ========= INFO RECORD ========= */
+    -- /* ========= INFO RECORD ========= */
+    
     -- i.purchasinginforecord,
     -- i.materialplanneddeliverydurn,
     -- i.pricevalidityenddate,
 
     /* ========= APPROVAL ========= */
+    pr.purchasereqnitemuniqueid,
     a.approvercode,
     a.approverdescription,
     a.approveusername,
     a.approverfullname,
-    a.approve_dt,
+    a.approvedate as po_approvedate,
+    ar.updatedate as pr_approvedate,
     a.isapprove,
+
+    /* ========= LATEST MATERIAL PRICE ========= */
+    lm.latest_material_price_per_unit,
+    lm.purchasingdocumentorderdate AS latest_price_po_date,
 
     /* ========= PRICING ========= */
     COALESCE(p.clearance_amount,0)     AS total_clearance_amount,
@@ -236,7 +289,9 @@ SELECT
             THEN NULL
             ELSE (po.orderquantity * po.quantity_numerator) / po.quantity_denominator
         END
-    AS DECIMAL(18,3)) AS material_quantity_conversion
+    AS DECIMAL(18,3)) AS material_quantity_conversion,
+
+    DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days
 
     /* ========= JOINS ========= */
 
@@ -249,6 +304,8 @@ LEFT JOIN silver_ziprapprov_cte ar
 -- LEFT JOIN silver_ziinforecorgdata_cte i
 --     ON po.purchasinginforecord = i.purchasinginforecord
 --    AND po.plant = i.plant
+--    AND po.purchasingdocument = i.lastreferencingpurchaseorder
+--    AND po.purchasingdocumentitem = i.lastreferencingpurorderitem
 LEFT JOIN silver_zmmpurchasingdoc_cte d
     ON po.purchasingdocument = d.purchasingdocument
 LEFT JOIN silver_zipoapprov_cte a
@@ -259,3 +316,7 @@ LEFT JOIN silver_zipricingelement_cte p
 LEFT JOIN silver_zimmpurdochist_cte h
     ON po.purchasingdocument = h.purchasingdocument
    AND po.purchasingdocumentitem = h.purchasingdocumentitem
+LEFT JOIN latest_material_price_cte lm
+    ON po.material = lm.material
+   AND po.plant = lm.plant
+   AND lm.rn = 1
