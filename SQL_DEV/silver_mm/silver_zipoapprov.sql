@@ -9,7 +9,7 @@ WITH Ranked_Raw_Batch AS (
     WHERE
         purchasingdocument IS NOT NULL
         -- AND isdelete = false
-        AND isapprove = 'Yes'
+        -- AND isapprove = 'Yes'
 )
 
 SELECT
