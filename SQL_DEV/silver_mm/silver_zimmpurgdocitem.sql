@@ -23,6 +23,7 @@ SELECT DISTINCT
     CAST(U.quantitydenominator AS DOUBLE) AS quantity_denominator,
     CAST(R.plant AS STRING) AS plant,
     CAST(PR.productgroup AS STRING) AS materialgroup,
+    CAST(PGR.materialgroupname AS STRING) AS materialgroupname,
     CAST(R.orderquantityunit AS STRING) AS orderquantityunit,
     CAST(PR.baseunit AS STRING) AS baseunit,
     CAST(R.invoiceisexpected AS STRING) AS free_item,
@@ -47,4 +48,6 @@ LEFT JOIN ziprduom U
 LEFT JOIN ziprdplant P
     ON R.material = P.product
     AND R.plant = P.plant
+LEFT JOIN ziproductgrp PGR
+    ON R.materialgroup = PGR.materialgroup
 WHERE rn = 1
