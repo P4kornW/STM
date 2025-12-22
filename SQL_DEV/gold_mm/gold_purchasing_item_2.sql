@@ -9,6 +9,7 @@ WITH silver_zimmpurgdocitem_cte AS (
         quantity_denominator,
         plant,
         materialgroup,
+        materialgroupname,
         orderquantityunit,
         baseunit,
         free_item,
@@ -17,7 +18,8 @@ WITH silver_zimmpurgdocitem_cte AS (
         purchasinginforecord,
         orderquantity,
         taxcode,
-        safetystockquantity
+        safetystockquantity,
+        netpriceamount
     FROM silver_mm_zimmpurgdocitem
 ),
 
@@ -29,6 +31,15 @@ silver_zipritem_cte AS (
         purchaserequisitionitem,
         purchasereqnitemuniqueid
     FROM silver_mm_zipritem
+),
+
+silver_zimmprgdocsl_cte AS (
+    SELECT
+        purchasingdocument,
+        purchasingdocumentitem,
+        scheduleline,
+        schedulelinedeliverydate
+    FROM silver_mm_zimmprgdocsl where scheduleline = '0001'
 ),
 
 silver_zipoapprov_cte AS (
@@ -80,36 +91,37 @@ silver_zimmpurdochist_cte AS (
         purchasingdocument,
         purchasingdocumentitem,
 
-        CAST(SUM(
+        MAX(postingdate) as latest_postingdate,
+
+        SUM(
             CASE -- GR Quantity
                 WHEN goodsmovementtype IN ('101','102') THEN
                     CASE WHEN debitcreditcode = 'H' THEN -quantity ELSE quantity END
                 ELSE 0
-            END
-        ) AS DECIMAL(18,3)) AS gr_qty,
+            END ) AS gr_qty,
 
-        CAST(SUM(
+        SUM(
             CASE -- GR Value in THB
                 WHEN goodsmovementtype IN ('101','102') THEN
                     CASE
                         WHEN debitcreditcode = 'H'
-                            THEN -CAST(purordamountincompanycodecrcy AS DECIMAL(18,2))
-                        ELSE CAST(purordamountincompanycodecrcy AS DECIMAL(18,2))
+                            THEN -purordamountincompanycodecrcy 
+                        ELSE purordamountincompanycodecrcy 
                     END
-                ELSE CAST(0 AS DECIMAL(18,2))
+                ELSE 0 
             END
-        ) AS DECIMAL(18,2)) AS gr_value_thb,
+        ) AS gr_value_thb,
 
-        CAST(SUM(
+        SUM(
             CASE -- GR Value in PO Currency
                 WHEN goodsmovementtype IN ('101','102') THEN
                     CASE WHEN debitcreditcode = 'H'
-                        THEN -CAST(purchaseorderamount AS DECIMAL(18,2))
-                        ELSE CAST(purchaseorderamount AS DECIMAL(18,2))
+                        THEN -purchaseorderamount
+                        ELSE purchaseorderamount
                     END
-                ELSE CAST(0 AS DECIMAL(18,2))
+                ELSE 0
             END
-        ) AS DECIMAL(18,2)) AS gr_value_pocurrency
+        ) AS gr_value_pocurrency
 
     FROM silver_mm_zimmpurdochist
     GROUP BY purchasingdocument, purchasingdocumentitem
@@ -123,45 +135,47 @@ silver_zipricingelement_cte AS (
         pricingdocument,
         pricingdocumentitem,
 
-        CAST(SUM(
+        SUM(
             CASE WHEN conditiontype = 'ZCB1' -- Clearance
                  AND conditioninactivereason IS NULL
                  THEN conditionamount ELSE 0 END
-        ) AS DECIMAL(18,2)) AS clearance_amount,
+        ) AS clearance_amount,
 
-        CAST(SUM(
+        SUM(
             CASE WHEN conditiontype = 'ZDB3' -- Discount
                  AND conditioninactivereason IS NULL
                  THEN conditionamount ELSE 0 END
-        ) AS DECIMAL(18,2)) AS discount_amount,
+        ) AS discount_amount,
 
-        CAST(SUM(
+        SUM(
             CASE WHEN conditiontype = 'ZFB3' -- Freight
                  AND conditioninactivereason IS NULL
                  THEN conditionamount ELSE 0 END
-        ) AS DECIMAL(18,2)) AS freight_amount,
+        ) AS freight_amount,
 
-        CAST(SUM(
+        SUM(
             CASE -- PO Actual Value
                 WHEN conditioninactivereason IS NULL
                 THEN conditionamount ELSE 0
             END
-        ) AS DECIMAL(18,2)) AS po_actual_value
+        ) AS po_actual_value
 
     FROM silver_mm_zipricingelement
     GROUP BY pricingdocument, pricingdocumentitem
 )
 
-, latest_material_price_cte AS ( -- Latest Material Price per Unit
+, latest_material_price_cte AS (
     SELECT
         material,
         plant,
         purchasingdocument,
         purchasingdocumentitem,
 
-        CAST(
-            po_actual_value / NULLIF(orderquantity, 0)
-        AS DECIMAL(18,4)) AS latest_material_price_per_unit,
+        CASE
+            WHEN free_item IS NULL THEN NULL
+            WHEN orderquantity = 0 THEN NULL
+            ELSE CAST(netpriceamount / orderquantity AS DECIMAL(18,4))
+        END AS latest_material_price_per_unit,
 
         purchasingdocumentorderdate,
 
@@ -178,17 +192,13 @@ silver_zipricingelement_cte AS (
             po.purchasingdocument,
             po.purchasingdocumentitem,
             po.orderquantity,
-            d.purchasingdocumentorderdate,
-            p.po_actual_value
+            po.netpriceamount,
+            po.free_item,
+            d.purchasingdocumentorderdate
         FROM silver_zimmpurgdocitem_cte po
         JOIN silver_zmmpurchasingdoc_cte d
             ON po.purchasingdocument = d.purchasingdocument
-        JOIN silver_zipricingelement_cte p
-            ON d.purchasingdocumentcondition = p.pricingdocument
-           AND po.purchasingdocumentitem = p.pricingdocumentitem
-        WHERE
-            p.po_actual_value IS NOT NULL
-            AND po.orderquantity > 0
+        WHERE po.netpriceamount IS NOT NULL AND po.netpriceamount <> 0
     ) x
 )
 
@@ -202,40 +212,91 @@ SELECT
     po.free_item,
     po.material,
     po.material_description,
+    po.materialgroup,
+    po.materialgroupname,
     d.purchasinggroup,
+    sl.schedulelinedeliverydate as po_delivery_date,
+    po.netpriceamount,
     po.orderquantity as po_quantity,
+    po.orderquantityunit as purchasing_unit,
+    
+    CAST(
+        CASE
+            WHEN po.quantity_numerator IS NULL
+                OR po.quantity_denominator IS NULL
+                OR po.quantity_denominator = 0
+            THEN NULL
+            ELSE (po.orderquantity * po.quantity_numerator) / po.quantity_denominator
+        END AS DECIMAL(18,3))
+    AS material_qty_conversion,
+    po.baseunit,
+    
+    CASE
+        /* ========== RM ========= */
+        WHEN LEFT(po.material, 2) = 'RM' AND po.baseunit = 'KG'
+            THEN material_qty_conversion
+
+        WHEN LEFT(po.material, 2) = 'RM' AND po.baseunit IN ('G','DR')
+            THEN material_qty_conversion
+
+        WHEN LEFT(po.material, 2) = 'RM' AND po.baseunit = 'L'
+            THEN material_qty_conversion * 1000   -- policy: 1 L ~ 1 KG
+
+        /* ========== PK / SP ========= */
+        WHEN LEFT(po.material, 2) IN ('PK','SP')
+            THEN material_qty_conversion
+
+        /* ========== DEFAULT ========= */
+        ELSE material_qty_conversion
+    END AS material_qty_report,
+
+    CASE
+        /* ================= RM ================= */
+        WHEN LEFT(po.material, 2) = 'RM' THEN
+            CASE
+                WHEN po.baseunit IN ('KG') THEN 'KG'
+                WHEN po.baseunit IN ('G','DR') THEN 'G'
+                WHEN po.baseunit IN ('L') THEN 'KG'   -- policy business
+                ELSE 'KG'                             -- fallback
+            END
+
+        /* ================= PK / SP ================= */
+        WHEN LEFT(po.material, 2) IN ('PK','SP') THEN 'EA'
+
+        /* ================= OTHER ================= */
+        ELSE po.baseunit
+    END AS material_qty_report_unit,
+
+
+    
+    d.documentcurrency,
+    d.exchangerate,
+
     COALESCE(h.gr_value_thb,0)         AS total_gr_value_thb,
     COALESCE(h.gr_value_pocurrency,0)  AS total_gr_value_po_currency,
+    
     CAST(
         CASE
             WHEN h.gr_qty IS NULL OR h.gr_qty = 0 THEN NULL
             ELSE h.gr_value_thb / h.gr_qty
-        END
-    AS DECIMAL(18,4)) AS gr_value_per_unit,
+        END AS DECIMAL(18,5)) 
+    AS gr_value_per_unit,
+    
+
     COALESCE(p.freight_amount,0)       AS total_freight_amount,
     COALESCE(p.clearance_amount,0)     AS total_clearance_amount,
     COALESCE(h.gr_qty,0)               AS total_gr_qty,
-    po.orderquantityunit as purchasing_unit,
+    
     COALESCE(p.po_actual_value,0)      AS total_po_actual_value,
-    d.supplier,
+    substr(d.supplier,3) as supplier,
     d.suppliername,
     d.paymentterms,
-    d.exchangerate,
-    CAST(
-        po.orderquantity - COALESCE(h.gr_qty,0)
-    AS DECIMAL(18,3)) AS gr_quantity_remain,
-    CAST(
-        CASE
-            WHEN po.quantity_numerator IS NULL
-              OR po.quantity_denominator IS NULL
-              OR po.quantity_denominator = 0
-            THEN NULL
-            ELSE (po.orderquantity * po.quantity_numerator) / po.quantity_denominator
-        END
-    AS DECIMAL(18,3)) AS material_quantity_conversion,
-    d.documentcurrency,
-    po.baseunit,
-    po.materialgroup,
+
+    CASE
+        WHEN po.orderquantity - COALESCE(h.gr_qty,0) < 0 THEN 0
+        ELSE po.orderquantity - COALESCE(h.gr_qty,0)
+    END AS gr_quantity_remain,
+
     d.releasecode,
     a.approvercode,
     a.approverdescription,
@@ -247,10 +308,14 @@ SELECT
     po.taxcode,
     COALESCE(p.discount_amount,0)      AS total_discount_amount,
     DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days,
+    DATEDIFF( day, a.approvedate, h.latest_postingdate ) AS po_approval_to_latest_gr_days,
+    DATEDIFF( day, ar.updatedate, h.latest_postingdate ) AS pr_approval_to_latest_gr_days,
+
     po.safetystockquantity,
     lm.latest_material_price_per_unit,
     lm.purchasingdocumentorderdate AS latest_price_po_date,
-    po.purchasinginforecord
+    po.purchasinginforecord,
+    current_timestamp() as last_main_silver_modified_dt
 
     /* ========= JOINS ========= */
 
@@ -274,3 +339,6 @@ LEFT JOIN latest_material_price_cte lm
     ON po.material = lm.material
    AND po.plant = lm.plant
    AND lm.rn = 1
+LEFT JOIN silver_zimmprgdocsl_cte sl
+    ON po.purchasingdocument = sl.purchasingdocument
+    AND po.purchasingdocumentitem = sl.purchasingdocumentitem
