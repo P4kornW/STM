@@ -31,7 +31,7 @@ SELECT DISTINCT
     END AS condition_description,
     TO_TIMESTAMP(R.pricingdatetime,'yyyyMMddHHmmss') AS pricingdatetime,
     CAST(R.conditioncalculationtype AS STRING) AS conditioncalculationtype,
-    CAST(R.conditionamount AS DOUBLE) AS conditionamount,
+    CAST(R.conditionamount AS DECIMAL(18,3)) AS conditionamount,
     CAST(R.transactioncurrency AS STRING) AS transactioncurrency,
     CAST(R.conditioninactivereason AS STRING) AS conditioninactivereason,
     R.ingestiontime,
