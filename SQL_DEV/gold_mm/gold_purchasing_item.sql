@@ -17,7 +17,8 @@ WITH silver_zimmpurgdocitem_cte AS (
         purchasinginforecord,
         orderquantity,
         taxcode,
-        safetystockquantity
+        safetystockquantity,
+        materialgroupname
     FROM silver_mm_zimmpurgdocitem
 ),
 
@@ -31,17 +32,15 @@ silver_zipritem_cte AS (
     FROM silver_mm_zipritem
 ),
 
--- silver_ziinforecorgdata_cte AS (
---     SELECT
---         purchasinginforecord,
---         plant,
---         materialplanneddeliverydurn,
---         pricevalidityenddate,
---         lastreferencingpurchaseorder,
---         lastreferencingpurorderitem
---     FROM silver_mm_ziinforecorgdata
---     -- GROUP BY purchasinginforecord, plant
--- ),
+silver_zimmprgdocsl_cte AS (
+    SELECT
+        purchasingdocument,
+        purchasingdocumentitem,
+        scheduleline,
+        schedulelinedeliverydate
+    FROM silver_mm_zimmprgdocsl where scheduleline = '0001'
+),
+
 
 silver_zipoapprov_cte AS (
     SELECT
@@ -91,6 +90,8 @@ silver_zimmpurdochist_cte AS (
     SELECT
         purchasingdocument,
         purchasingdocumentitem,
+
+        MAX(postingdate) AS lastest_postingdate,
 
         CAST(SUM(
             CASE -- GR Quantity
@@ -214,6 +215,7 @@ SELECT
     po.material_description,
     po.plant,
     po.materialgroup,
+    po.materialgroupname,
     po.orderquantityunit,
     po.baseunit,
     po.free_item,
@@ -237,12 +239,6 @@ SELECT
     d.paymentterms,
     d.purchasingdocumentcondition,
 
-    -- /* ========= INFO RECORD ========= */
-    
-    -- i.purchasinginforecord,
-    -- i.materialplanneddeliverydurn,
-    -- i.pricevalidityenddate,
-
     /* ========= APPROVAL ========= */
     pr.purchasereqnitemuniqueid,
     a.approvercode,
@@ -250,6 +246,7 @@ SELECT
     a.approveusername,
     a.approverfullname,
     a.approvedate as po_approvedate,
+    h.lastest_postingdate as last_gr_postingdate,
     ar.updatedate as pr_approvedate,
     a.isapprove,
 
@@ -267,6 +264,10 @@ SELECT
     COALESCE(h.gr_qty,0)               AS total_gr_qty,
     COALESCE(h.gr_value_pocurrency,0)  AS total_gr_value_po_currency,
     COALESCE(h.gr_value_thb,0)         AS total_gr_value_thb,
+
+    /* ========= Schedule Line ========= */
+    sl.schedulelinedeliverydate as po_delivery_date,
+
 
     /* ========= CALCULATED (GOLD) ========= */
 
@@ -291,7 +292,9 @@ SELECT
         END
     AS DECIMAL(18,3)) AS material_quantity_conversion,
 
-    DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days
+    DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days,
+    DATEDIFF(day,a.approvedate,h.lastest_postingdate) AS po_approval_to_lastest_gr_days,
+    DATEDIFF( day,ar.updatedate,h.lastest_postingdate) AS pr_to_lastest_gr_days
 
     /* ========= JOINS ========= */
 
@@ -301,11 +304,6 @@ LEFT JOIN silver_zipritem_cte pr
    AND po.purchasingdocumentitem = pr.purchasingdocumentitem
 LEFT JOIN silver_ziprapprov_cte ar
     ON pr.purchasereqnitemuniqueid = ar.purchasereqnitemuniqueid
--- LEFT JOIN silver_ziinforecorgdata_cte i
---     ON po.purchasinginforecord = i.purchasinginforecord
---    AND po.plant = i.plant
---    AND po.purchasingdocument = i.lastreferencingpurchaseorder
---    AND po.purchasingdocumentitem = i.lastreferencingpurorderitem
 LEFT JOIN silver_zmmpurchasingdoc_cte d
     ON po.purchasingdocument = d.purchasingdocument
 LEFT JOIN silver_zipoapprov_cte a
@@ -320,3 +318,6 @@ LEFT JOIN latest_material_price_cte lm
     ON po.material = lm.material
    AND po.plant = lm.plant
    AND lm.rn = 1
+LEFT JOIN silver_zimmprgdocsl_cte sl
+    ON po.purchasingdocument = sl.purchasingdocument
+   AND po.purchasingdocumentitem = sl.purchasingdocumentitem
