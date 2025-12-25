@@ -20,6 +20,7 @@ SELECT DISTINCT
     CAST(R.supplier AS STRING) AS supplier,
     CAST(S.suppliername AS STRING) AS suppliername,
     CAST(R.purchasinggroup AS STRING) AS purchasinggroup,
+    CAST(G.purchasinggroupname as STRING) AS purchasinggroupname,
     CAST(R.documentcurrency AS STRING) AS documentcurrency,
     CAST(R.exchangerate AS double) AS exchangerate,
     to_date(R.purchasingdocumentorderdate, 'yyyyMMdd') AS purchasingdocumentorderdate,
@@ -35,4 +36,6 @@ SELECT DISTINCT
 FROM Ranked_Raw_Batch R
 LEFT JOIN zisupplier S
     ON R.supplier = S.supplier
+LEFT JOIN zimmpurchgroup G
+    ON R.purchasinggroup = G.purchasinggroup
 WHERE rn = 1
