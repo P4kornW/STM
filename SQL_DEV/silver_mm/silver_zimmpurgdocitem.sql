@@ -21,13 +21,20 @@ SELECT DISTINCT
     CAST(R.purchasingdocumentitemtext AS STRING) AS material_description,
     CAST(U.quantitynumerator AS DECIMAL(18,3)) AS quantity_numerator,
     CAST(U.quantitydenominator AS DECIMAL(18,3)) AS quantity_denominator,
+    CAST(U_KG.quantitynumerator AS DECIMAL(18,3)) AS quantity_numerator_kg,
+    CAST(U_KG.quantitydenominator AS DECIMAL(18,3)) AS quantity_denominator_kg,
+    CAST(U_EA.quantitynumerator AS DECIMAL(18,3)) AS quantity_numerator_ea,
+    CAST(U_EA.quantitydenominator AS DECIMAL(18,3)) AS quantity_denominator_ea,
     CAST(R.plant AS STRING) AS plant,
     CAST(PR.productgroup AS STRING) AS materialgroup,
     CAST(PGR.materialgroupname AS STRING) AS materialgroupname,
     CAST(R.netpriceamount AS DECIMAL(18,3)) AS netpriceamount,
     CAST(R.orderquantityunit AS STRING) AS orderquantityunit,
     CAST(PR.baseunit AS STRING) AS baseunit,
-    CAST(R.invoiceisexpected AS STRING) AS free_item,
+    CASE 
+        WHEN R.invoiceisexpected IS NULL OR R.invoiceisexpected = '' THEN 'X'
+        ELSE null                                                               
+    END AS free_item,
     CAST(R.purchaserequisition AS STRING) AS purchaserequisition,
     CAST(R.purchaserequisitionitem AS STRING) AS purchaserequisitionitem,
     CAST(R.purchasinginforecord AS STRING) AS purchasinginforecord,
@@ -46,6 +53,12 @@ LEFT JOIN ziproduct PR
 LEFT JOIN ziprduom U
     ON PR.product = U.product
     AND R.orderquantityunit = U.alternativeunit
+LEFT JOIN ziprduom U_KG
+    ON PR.product = U_KG.product
+    AND U_KG.alternativeunit = 'KG'
+LEFT JOIN ziprduom U_EA
+    ON PR.product = U_EA.product
+    AND U_EA.alternativeunit = 'EA'
 LEFT JOIN ziprdplant P
     ON R.material = P.product
     AND R.plant = P.plant
