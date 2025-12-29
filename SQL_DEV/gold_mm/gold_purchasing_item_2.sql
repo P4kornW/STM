@@ -7,6 +7,10 @@ WITH silver_zimmpurgdocitem_cte AS (
         material_description,
         quantity_numerator,
         quantity_denominator,
+        quantity_numerator_kg,
+        quantity_denominator_kg,
+        quantity_numerator_ea,
+        quantity_denominator_ea,
         plant,
         materialgroup,
         materialgroupname,
@@ -74,6 +78,7 @@ silver_zmmpurchasingdoc_cte AS (
         supplier,
         suppliername,
         purchasinggroup,
+        purchasinggroupname,
         documentcurrency,
         exchangerate,
         purchasingdocumentorderdate,
@@ -215,11 +220,15 @@ SELECT
     po.materialgroup,
     po.materialgroupname,
     d.purchasinggroup,
+    d.purchasinggroupname,
     sl.schedulelinedeliverydate as po_delivery_date,
     po.netpriceamount,
+    h.latest_postingdate as latest_grdate,
     po.orderquantity as po_quantity,
     po.orderquantityunit as purchasing_unit,
     
+    --- 1) convert ตาม UOM master ---
+
     CAST(
         CASE
             WHEN po.quantity_numerator IS NULL
@@ -231,42 +240,23 @@ SELECT
     AS material_qty_conversion,
     po.baseunit,
     
-    CASE
-        /* ========== RM ========= */
-        WHEN LEFT(po.material, 2) = 'RM' AND po.baseunit = 'KG'
-            THEN material_qty_conversion
+    --- 2) convert เป็น KG ถ้า RM ---
+   CAST(
+    CASE 
+        WHEN LEFT(po.material,2) = 'RM' AND po.quantity_numerator_kg IS NOT NULL
+            THEN (po.orderquantity * po.quantity_numerator_kg) / po.quantity_denominator_kg
+            ELSE NULL
+        END AS DECIMAL(18,3)
+    ) AS quantity_in_kg,
 
-        WHEN LEFT(po.material, 2) = 'RM' AND po.baseunit IN ('G','DR')
-            THEN material_qty_conversion
-
-        WHEN LEFT(po.material, 2) = 'RM' AND po.baseunit = 'L'
-            THEN material_qty_conversion * 1000   -- policy: 1 L ~ 1 KG
-
-        /* ========== PK / SP ========= */
-        WHEN LEFT(po.material, 2) IN ('PK','SP')
-            THEN material_qty_conversion
-
-        /* ========== DEFAULT ========= */
-        ELSE material_qty_conversion
-    END AS material_qty_report,
-
-    CASE
-        /* ================= RM ================= */
-        WHEN LEFT(po.material, 2) = 'RM' THEN
-            CASE
-                WHEN po.baseunit IN ('KG') THEN 'KG'
-                WHEN po.baseunit IN ('G','DR') THEN 'G'
-                WHEN po.baseunit IN ('L') THEN 'KG'   -- policy business
-                ELSE 'KG'                             -- fallback
-            END
-
-        /* ================= PK / SP ================= */
-        WHEN LEFT(po.material, 2) IN ('PK','SP') THEN 'EA'
-
-        /* ================= OTHER ================= */
-        ELSE po.baseunit
-    END AS material_qty_report_unit,
-
+    --- 3) convert เป็น EA ถ้า PK / SP ---
+    CAST(
+    CASE 
+        WHEN LEFT(po.material,2) IN ('PK','SP') AND po.quantity_numerator_ea IS NOT NULL
+            THEN (po.orderquantity * po.quantity_numerator_ea) / po.quantity_denominator_ea
+            ELSE NULL
+        END AS DECIMAL(18,3)
+    ) AS quantity_in_ea,
 
     
     d.documentcurrency,
