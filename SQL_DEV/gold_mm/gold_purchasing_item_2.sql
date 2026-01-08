@@ -182,7 +182,7 @@ silver_zipricingelement_cte AS (
         purchasingdocumentitem,
 
         CASE
-            WHEN free_item IS NULL THEN NULL
+            WHEN free_item = 'X' THEN NULL
             WHEN orderquantity = 0 THEN NULL
             ELSE CAST(netpriceamount / orderquantity AS DECIMAL(18,4))
         END AS latest_material_price_per_unit,
