@@ -12,8 +12,13 @@
         debitcreditcode,
         quantity,
         purordamountincompanycodecrcy,
-        purchaseorderamount
-    FROM silver_mm_zimmpurdochist
+        purchaseorderamount,
+        ingestiontime,
+        isinsert,
+        isupsert,
+        isdelete,
+        changetype
+    FROM silver_mm_zimmpurdochist WHERE isdelete = false
 
 ),
 
@@ -39,7 +44,7 @@ silver_zimmpurgdocitem_cte AS (
         taxcode,
         safetystockquantity,
         netpriceamount
-    FROM silver_mm_zimmpurgdocitem
+    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false
 ),
 
 silver_zmmpurchasingdoc_cte AS (
@@ -57,7 +62,7 @@ silver_zmmpurchasingdoc_cte AS (
         paymentterms,
         incotermsclassification,
         purchasingdocumentcondition
-    FROM silver_mm_zmmpurchasingdoc
+    FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false
 )
 
 SELECT 
@@ -98,6 +103,11 @@ SELECT
     hd.paymentterms,
     hd.incotermsclassification,
     hd.purchasingdocumentcondition,
+    h.ingestiontime,
+    h.isinsert,
+    h.isupsert,
+    h.isdelete,
+    h.changetype,
     current_timestamp() as last_main_silver_modified_dt
 
     FROM silver_zimmpurdochist_cte h
