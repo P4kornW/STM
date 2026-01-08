@@ -34,9 +34,7 @@ Ranked_Raw_Batch AS (
         ON R.purchasingdocument = S.purchasingdocument
     WHERE
         R.purchasingdocument IS NOT NULL
-        -- ถ้าจะกรองเพิ่ม ค่อยเปิดใช้
-        -- AND R.isdelete = false
-        -- AND R.isapprove = 'Yes'
+
 )
 
 /* =========================
