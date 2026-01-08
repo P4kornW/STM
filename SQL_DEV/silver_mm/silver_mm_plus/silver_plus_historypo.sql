@@ -43,7 +43,9 @@ silver_zimmpurgdocitem_cte AS (
         orderquantity,
         taxcode,
         safetystockquantity,
-        netpriceamount
+        netpriceamount,
+        netamount,
+        netpricequantity
     FROM silver_mm_zimmpurgdocitem WHERE isdelete = false
 ),
 
@@ -61,7 +63,8 @@ silver_zmmpurchasingdoc_cte AS (
         purchasingdocumentorderdate,
         paymentterms,
         incotermsclassification,
-        purchasingdocumentcondition
+        purchasingdocumentcondition,
+        purgreleasetimetotalamount
     FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false
 )
 
@@ -91,6 +94,8 @@ SELECT
     po.purchaserequisitionitem,
     po.orderquantity,
     po.netpriceamount,
+    po.netpricequantity,
+    po.netamount,
     po.taxcode,
     po.safetystockquantity,
     hd.supplier,
@@ -103,6 +108,7 @@ SELECT
     hd.paymentterms,
     hd.incotermsclassification,
     hd.purchasingdocumentcondition,
+    hd.purgreleasetimetotalamount,
     h.ingestiontime,
     h.isinsert,
     h.isupsert,

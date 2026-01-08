@@ -35,6 +35,8 @@ silver_zimmpurgdocitem_cte AS (
         orderquantity,
         taxcode,
         safetystockquantity,
+        netamount,
+        netpricequantity,
         netpriceamount
     FROM silver_mm_zimmpurgdocitem where isdelete = false
 ),
@@ -53,7 +55,8 @@ silver_zmmpurchasingdoc_cte AS (
         purchasingdocumentorderdate,
         paymentterms,
         incotermsclassification,
-        purchasingdocumentcondition
+        purchasingdocumentcondition,
+        purgreleasetimetotalamount
     FROM silver_mm_zmmpurchasingdoc where isdelete = false
 )
 
@@ -61,8 +64,8 @@ SELECT
 
     i.purchasinginforecord, -- grain
     i.purchasingorganization, -- grain
-    i.purchasinginforecordcategory, -- grain
-    i.plant, -- grain
+    i.purchasinginforecordcategory,  -- grain
+    i.plant,  -- grain
     po.purchasingdocument, -- grain
     po.purchasingdocumentitem, -- grain
     i.materialplanneddeliverydurn,
@@ -78,6 +81,8 @@ SELECT
     po.purchaserequisitionitem,
     po.orderquantity,
     po.netpriceamount,
+    po.netpricequantity,
+    po.netamount,
     po.taxcode,
     po.safetystockquantity,
     h.supplier,
@@ -90,6 +95,7 @@ SELECT
     h.paymentterms,
     h.incotermsclassification,
     h.purchasingdocumentcondition,
+    h.purgreleasetimetotalamount,
     i.ingestiontime,
     i.isinsert,
     i.isupsert,
@@ -99,7 +105,7 @@ SELECT
 
 
     FROM silver_ziinforecorgdata_cte i
-    LEFT JOIN silver_zimmpurgdocitem_cte po
+    JOIN silver_zimmpurgdocitem_cte po
     ON i.purchasinginforecord = po.purchasinginforecord
-    LEFT JOIN silver_zmmpurchasingdoc_cte h
+    JOIN silver_zmmpurchasingdoc_cte h
     ON po.purchasingdocument = h.purchasingdocument
