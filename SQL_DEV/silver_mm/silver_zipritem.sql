@@ -11,7 +11,6 @@ WITH Ranked_Raw_Batch AS (
     WHERE 
         purchaserequisition IS NOT NULL 
         AND purchaserequisitionitem IS NOT NULL
-        AND isdeleted IS NULL
 )
 
 SELECT DISTINCT
@@ -20,6 +19,7 @@ SELECT DISTINCT
     CAST(R.purchasingdocument AS STRING) AS purchasingdocument,
     CAST(R.purchasingdocumentitem AS STRING) AS purchasingdocumentitem,
     CAST(R.purchasereqnitemuniqueid AS STRING) AS purchasereqnitemuniqueid,
+    CAST(R.isdeleted AS STRING) AS isdeleted,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
