@@ -24,6 +24,8 @@ WITH silver_zimmpurgdocitem_cte AS (
         taxcode,
         safetystockquantity,
         netpriceamount,
+        netamount,
+        netpricequantity,
         ingestiontime,
         isupsert,
         isdelete,
@@ -89,7 +91,8 @@ silver_zmmpurchasingdoc_cte AS (
         purchasingdocumentorderdate,
         paymentterms,
         incotermsclassification,
-        purchasingdocumentcondition
+        purchasingdocumentcondition,
+        purgreleasetimetotalamount
     FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false
 ),
 
@@ -228,6 +231,8 @@ SELECT
     d.purchasinggroupname,
     sl.schedulelinedeliverydate as po_delivery_date,
     po.netpriceamount,
+    po.netamount,
+    po.netpricequantity,
     h.latest_postingdate as latest_grdate,
     po.orderquantity as po_quantity,
     po.orderquantityunit as purchasing_unit,
@@ -300,6 +305,7 @@ SELECT
     a.approvedate as po_approvedate,
     ar.updatedate as pr_approvedate,
     d.incotermsclassification,
+    d.purgreleasetimetotalamount,
     po.taxcode,
     COALESCE(p.discount_amount,0)      AS total_discount_amount,
     DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days,
