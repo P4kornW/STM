@@ -5,13 +5,13 @@
         purchasinginforecordcategory,
         plant,
         materialplanneddeliverydurn,
-        pricevalidityenddate
-        -- ingestiontime,
-        -- isupsert,
-        -- isdelete,
-        -- isinsert,
-        -- changetype
-    FROM silver_mm_ziinforecorgdata
+        pricevalidityenddate,
+        ingestiontime,
+        isupsert,
+        isdelete,
+        isinsert,
+        changetype
+    FROM silver_mm_ziinforecorgdata where isdelete = false
 ),
 
 silver_zimmpurgdocitem_cte AS (
@@ -36,7 +36,7 @@ silver_zimmpurgdocitem_cte AS (
         taxcode,
         safetystockquantity,
         netpriceamount
-    FROM silver_mm_zimmpurgdocitem
+    FROM silver_mm_zimmpurgdocitem where isdelete = false
 ),
 
 silver_zmmpurchasingdoc_cte AS (
@@ -54,7 +54,7 @@ silver_zmmpurchasingdoc_cte AS (
         paymentterms,
         incotermsclassification,
         purchasingdocumentcondition
-    FROM silver_mm_zmmpurchasingdoc
+    FROM silver_mm_zmmpurchasingdoc where isdelete = false
 )
 
 SELECT 
@@ -90,6 +90,11 @@ SELECT
     h.paymentterms,
     h.incotermsclassification,
     h.purchasingdocumentcondition,
+    i.ingestiontime,
+    i.isinsert,
+    i.isupsert,
+    i.isdelete,
+    i.changetype,
     current_timestamp() as last_main_silver_modified_dt
 
 
