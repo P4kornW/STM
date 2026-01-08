@@ -43,6 +43,7 @@ Ranked_Raw_Batch AS (
     WHERE 
         R.purchasingdocument IS NOT NULL 
         AND R.purchasingdocumentitem IS NOT NULL
+        AND R.purchasingdocumentdeletioncode IS NULL
 )
 
 /* =========================
@@ -83,7 +84,8 @@ SELECT DISTINCT
     CAST(R.orderquantity AS DECIMAL(18,3)) AS orderquantity,
     CAST(R.taxcode AS STRING) AS taxcode,
     CAST(P.safetystockquantity AS DECIMAL(18,3)) as safetystockquantity,
-
+    CAST(R.netamount AS DECIMAL(18,3)) as netamount,
+    CAST(R.netpricequantity AS DECIMAL(18,3)) as netpricequantity,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
