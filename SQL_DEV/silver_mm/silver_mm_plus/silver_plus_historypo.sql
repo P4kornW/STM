@@ -46,7 +46,7 @@ silver_zimmpurgdocitem_cte AS (
         netpriceamount,
         netamount,
         netpricequantity
-    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false
+    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false AND purchasingdocumentdeletioncode IS NULL
 ),
 
 silver_zmmpurchasingdoc_cte AS (
