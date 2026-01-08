@@ -31,7 +31,7 @@ WITH silver_zimmpurgdocitem_cte AS (
         isdelete,
         isinsert,
         changetype
-    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false
+    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false  AND purchasingdocumentdeletioncode IS NULL
 ),
 
 silver_zipritem_cte AS (
@@ -41,7 +41,7 @@ silver_zipritem_cte AS (
         purchaserequisition,
         purchaserequisitionitem,
         purchasereqnitemuniqueid
-    FROM silver_mm_zipritem WHERE isdelete = false
+    FROM silver_mm_zipritem WHERE isdelete = false AND isdeleted IS NULL
 ),
 
 silver_zimmprgdocsl_cte AS (
@@ -272,8 +272,8 @@ SELECT
     d.documentcurrency,
     d.exchangerate,
 
-    COALESCE(h.gr_value_thb,0)         AS total_gr_value_thb,
-    COALESCE(h.gr_value_pocurrency,0)  AS total_gr_value_po_currency,
+    h.gr_value_thb        AS total_gr_value_thb,
+    h.gr_value_pocurrency  AS total_gr_value_po_currency,
     
     CAST(
         CASE
@@ -283,11 +283,15 @@ SELECT
     AS gr_value_per_unit,
     
 
-    COALESCE(p.freight_amount,0)       AS total_freight_amount,
-    COALESCE(p.clearance_amount,0)     AS total_clearance_amount,
-    COALESCE(h.gr_qty,0)               AS total_gr_qty,
+    CAST(p.freight_amount AS DECIMAL(18,3))      AS total_freight_amount,
+    CAST(p.freight_amount*d.exchangerate  AS DECIMAL(18,3))     AS total_freight_amount_thb,
+    CAST(p.clearance_amount AS DECIMAL(18,3))     AS total_clearance_amount,
+    CAST(p.clearance_amount*d.exchangerate AS DECIMAL(18,3))    AS total_clearance_amount_thb,
+    CAST(p.discount_amount   AS DECIMAL(18,3))   AS total_discount_amount,
+    CAST(p.discount_amount*d.exchangerate AS DECIMAL(18,3))  AS total_discount_amount_thb,
+    h.gr_qty         AS total_gr_qty,
     
-    COALESCE(p.po_actual_value,0)      AS total_po_actual_value,
+    p.po_actual_value     AS total_po_actual_value,
     substr(d.supplier,3) as supplier,
     d.suppliername,
     d.paymentterms,
@@ -307,7 +311,7 @@ SELECT
     d.incotermsclassification,
     d.purgreleasetimetotalamount,
     po.taxcode,
-    COALESCE(p.discount_amount,0)      AS total_discount_amount,
+
     DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days,
     DATEDIFF( day, a.approvedate, h.latest_postingdate ) AS po_approval_to_latest_gr_days,
     DATEDIFF( day, ar.updatedate, h.latest_postingdate ) AS pr_approval_to_latest_gr_days,
