@@ -56,6 +56,7 @@ SELECT
     CAST(R.paymentterms AS STRING) AS paymentterms,
     CAST(R.incotermsclassification AS STRING) AS incotermsclassification,  
     CAST(R.purchasingdocumentcondition AS STRING) AS purchasingdocumentcondition,
+    CAST(R.purgreleasetimetotalamount AS DECIMAL(18,2)) AS purgreleasetimetotalamount,
 
     R.ingestiontime,
     R.isupsert,
