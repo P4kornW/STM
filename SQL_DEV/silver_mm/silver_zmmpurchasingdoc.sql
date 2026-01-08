@@ -1,18 +1,47 @@
-WITH Ranked_Raw_Batch AS (
-    -- LEVEL 1: DEDUPLICATION (The "Filter")
-    -- We select * from Bronze to get all columns, calculate Rank, and filter bad flags.
+WITH 
+
+/* =========================
+   1) หา scope ของ PO ที่ต้อง reprocess
+   ========================= */
+Final_Processing_Scope AS (
+    SELECT DISTINCT R.purchasingdocument
+    FROM zmmpurchasingdoc R
+    LEFT JOIN zisupplier S
+        ON R.supplier = S.supplier
+    LEFT JOIN zimmpurchgroup G
+        ON R.purchasinggroup = G.purchasinggroup
+    WHERE
+        -- transaction เปลี่ยน
+        R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
+
+        -- หรือ supplier master เปลี่ยน
+        OR S.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
+
+        -- หรือ purchasing group master เปลี่ยน
+        OR G.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
+),
+
+/* =========================
+   2) ดึงข้อมูลเต็มของ PO ที่อยู่ใน scope
+   ========================= */
+Ranked_Raw_Batch AS (
     SELECT 
-        *, 
+        R.*, 
         ROW_NUMBER() OVER (
-            PARTITION BY purchasingdocument
-            ORDER BY ingestiontime DESC
+            PARTITION BY R.purchasingdocument
+            ORDER BY R.ingestiontime DESC
         ) as rn
-    FROM zmmpurchasingdoc
+    FROM zmmpurchasingdoc R
+    INNER JOIN Final_Processing_Scope S
+        ON R.purchasingdocument = S.purchasingdocument
     WHERE 
-        purchasingdocument IS NOT NULL
+        R.purchasingdocument IS NOT NULL
 )
 
-SELECT DISTINCT
+/* =========================
+   3) SELECT final
+   ========================= */
+SELECT
     CAST(R.purchasingdocument AS STRING) AS purchasingdocument,
     CAST(R.purchasingdocumentcategory AS STRING) AS purchasingdocumentcategory,  
     CAST(R.purchasingdocumenttype AS STRING) AS purchasingdocumenttype,
@@ -20,19 +49,21 @@ SELECT DISTINCT
     CAST(R.supplier AS STRING) AS supplier,
     CAST(S.suppliername AS STRING) AS suppliername,
     CAST(R.purchasinggroup AS STRING) AS purchasinggroup,
-    CAST(G.purchasinggroupname as STRING) AS purchasinggroupname,
+    CAST(G.purchasinggroupname AS STRING) AS purchasinggroupname,
     CAST(R.documentcurrency AS STRING) AS documentcurrency,
-    CAST(R.exchangerate AS double) AS exchangerate,
+    CAST(R.exchangerate AS DOUBLE) AS exchangerate,
     to_date(R.purchasingdocumentorderdate, 'yyyyMMdd') AS purchasingdocumentorderdate,
     CAST(R.paymentterms AS STRING) AS paymentterms,
     CAST(R.incotermsclassification AS STRING) AS incotermsclassification,  
     CAST(R.purchasingdocumentcondition AS STRING) AS purchasingdocumentcondition,
+
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
     R.isinsert,
     R.changetype,
     current_timestamp() as last_modified_dt
+
 FROM Ranked_Raw_Batch R
 LEFT JOIN zisupplier S
     ON R.supplier = S.supplier
