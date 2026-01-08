@@ -23,8 +23,13 @@ WITH silver_zimmpurgdocitem_cte AS (
         orderquantity,
         taxcode,
         safetystockquantity,
-        netpriceamount
-    FROM silver_mm_zimmpurgdocitem
+        netpriceamount,
+        ingestiontime,
+        isupsert,
+        isdelete,
+        isinsert,
+        changetype
+    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false
 ),
 
 silver_zipritem_cte AS (
@@ -34,7 +39,7 @@ silver_zipritem_cte AS (
         purchaserequisition,
         purchaserequisitionitem,
         purchasereqnitemuniqueid
-    FROM silver_mm_zipritem
+    FROM silver_mm_zipritem WHERE isdelete = false
 ),
 
 silver_zimmprgdocsl_cte AS (
@@ -43,7 +48,7 @@ silver_zimmprgdocsl_cte AS (
         purchasingdocumentitem,
         scheduleline,
         schedulelinedeliverydate
-    FROM silver_mm_zimmprgdocsl where scheduleline = '0001'
+    FROM silver_mm_zimmprgdocsl where scheduleline = '0001' and isdelete = false
 ),
 
 silver_zipoapprov_cte AS (
@@ -56,7 +61,7 @@ silver_zipoapprov_cte AS (
         approverdescription,
         approveusername,
         approverfullname
-    FROM silver_mm_zipoapprov
+    FROM silver_mm_zipoapprov WHERE isdelete = false
 ),
 
 silver_ziprapprov_cte AS (
@@ -66,7 +71,7 @@ silver_ziprapprov_cte AS (
         updatedate,
         updatetime,
         update_dt
-    FROM silver_mm_ziprapprov
+    FROM silver_mm_ziprapprov WHERE isdelete = false
 ),
 
 silver_zmmpurchasingdoc_cte AS (
@@ -85,7 +90,7 @@ silver_zmmpurchasingdoc_cte AS (
         paymentterms,
         incotermsclassification,
         purchasingdocumentcondition
-    FROM silver_mm_zmmpurchasingdoc
+    FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false
 ),
 
 /* =======================
@@ -128,8 +133,8 @@ silver_zimmpurdochist_cte AS (
             END
         ) AS gr_value_pocurrency
 
-    FROM silver_mm_zimmpurdochist
-    GROUP BY purchasingdocument, purchasingdocumentitem
+    FROM silver_mm_zimmpurdochist WHERE isdelete = false
+    GROUP BY purchasingdocument, purchasingdocumentitem 
 ),
 
 /* =======================
@@ -165,8 +170,8 @@ silver_zipricingelement_cte AS (
             END
         ) AS po_actual_value
 
-    FROM silver_mm_zipricingelement
-    GROUP BY pricingdocument, pricingdocumentitem
+    FROM silver_mm_zipricingelement WHERE isdelete = false
+    GROUP BY pricingdocument, pricingdocumentitem 
 )
 
 , latest_material_price_cte AS (
@@ -305,6 +310,11 @@ SELECT
     lm.latest_material_price_per_unit,
     lm.purchasingdocumentorderdate AS latest_price_po_date,
     po.purchasinginforecord,
+    po.ingestiontime,
+    po.isinsert,
+    po.isupsert,
+    po.isdelete,
+    po.changetype,
     current_timestamp() as last_main_silver_modified_dt
 
     /* ========= JOINS ========= */
