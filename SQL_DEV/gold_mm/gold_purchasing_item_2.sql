@@ -26,6 +26,7 @@ WITH silver_zimmpurgdocitem_cte AS (
         netpriceamount,
         netamount,
         netpricequantity,
+        iscompletelydelivered,
         ingestiontime,
         isupsert,
         isdelete,
@@ -155,16 +156,61 @@ silver_zipricingelement_cte AS (
         ) AS clearance_amount,
 
         SUM(
+            CASE 
+                WHEN conditiontype = 'ZCB1'
+                 AND conditioninactivereason IS NULL
+                THEN
+                    CASE 
+                        WHEN conditioncurrency = 'THB'
+                            THEN conditionratevalue
+                        ELSE
+                            conditionamount * pricedetnexchangerate
+                    END
+                ELSE 0 
+            END
+        ) AS clearance_amount_thb,
+
+        SUM(
             CASE WHEN conditiontype = 'ZDB3' -- Discount
                  AND conditioninactivereason IS NULL
                  THEN conditionamount ELSE 0 END
         ) AS discount_amount,
 
         SUM(
+            CASE 
+                WHEN conditiontype = 'ZDB3'
+                 AND conditioninactivereason IS NULL
+                THEN
+                    CASE 
+                        WHEN conditioncurrency = 'THB'
+                            THEN conditionratevalue
+                        ELSE
+                            conditionamount * pricedetnexchangerate
+                    END
+                ELSE 0 
+            END
+        ) AS discount_amount_thb,
+
+        SUM(
             CASE WHEN conditiontype = 'ZFB3' -- Freight
                  AND conditioninactivereason IS NULL
                  THEN conditionamount ELSE 0 END
         ) AS freight_amount,
+
+        SUM(
+            CASE 
+                WHEN conditiontype = 'ZFB3'
+                 AND conditioninactivereason IS NULL
+                THEN
+                    CASE 
+                        WHEN conditioncurrency = 'THB'
+                            THEN conditionratevalue
+                        ELSE
+                            conditionamount * pricedetnexchangerate
+                    END
+                ELSE 0 
+            END
+        ) AS freight_amount_thb,
 
         SUM(
             CASE -- PO Actual Value
@@ -177,43 +223,106 @@ silver_zipricingelement_cte AS (
     GROUP BY pricingdocument, pricingdocumentitem 
 )
 
+, logic_cal_cte AS (
+SELECT
+    po.purchasingdocument,
+    po.purchasingdocumentitem,
+
+    /* ===== GR QTY REMAIN ===== */
+    CASE
+        WHEN po.iscompletelydelivered = 'X' THEN 0
+        WHEN po.orderquantity - COALESCE(h.gr_qty,0) < 0 THEN 0
+        ELSE po.orderquantity - COALESCE(h.gr_qty,0)
+    END AS gr_quantity_remain,
+
+    /* ===== PRICE PER UNIT (PO) ===== */
+    CAST(
+        CASE
+            WHEN po.netpricequantity IS NULL OR po.netpricequantity = 0 THEN NULL
+            ELSE po.netpriceamount / po.netpricequantity
+        END AS DECIMAL(18,3)
+    ) AS price_per_unit,
+
+    /* ===== GR VALUE PER UNIT ===== */
+    CAST(
+        CASE
+            WHEN h.gr_qty IS NULL OR h.gr_qty = 0 THEN NULL
+        ELSE h.gr_value_thb / h.gr_qty
+        END AS DECIMAL(18,5)
+    ) AS gr_value_per_unit,
+
+    /* ===== GR VALUE REMAIN ===== */
+    CAST(
+        CASE
+            WHEN po.iscompletelydelivered = 'X' THEN 0
+            ELSE
+                (
+                    CASE
+                        WHEN po.orderquantity - COALESCE(h.gr_qty,0) < 0 THEN 0
+                        ELSE po.orderquantity - COALESCE(h.gr_qty,0)
+                    END
+                )
+                *
+                (CASE
+                    WHEN po.netpricequantity IS NULL OR po.netpricequantity = 0
+                    THEN NULL
+                    ELSE po.netpriceamount / po.netpricequantity
+                 END)
+        END AS DECIMAL(18,3)
+    ) AS gr_value_remain,
+
+    /* ===== GR VALUE REMAIN (THB) ===== */
+    CAST(
+        CASE
+            WHEN po.iscompletelydelivered = 'X' THEN 0
+            ELSE
+                (
+                    CASE
+                        WHEN po.orderquantity - COALESCE(h.gr_qty,0) < 0 THEN 0
+                        ELSE po.orderquantity - COALESCE(h.gr_qty,0)
+                    END
+                )
+                *
+                (CASE
+                    WHEN po.netpricequantity IS NULL OR po.netpricequantity = 0
+                    THEN NULL
+                    ELSE po.netpriceamount / po.netpricequantity
+                 END)
+                * d.exchangerate
+        END AS DECIMAL(18,3)
+    ) AS gr_value_remain_thb
+
+FROM silver_zimmpurgdocitem_cte po
+LEFT JOIN silver_zimmpurdochist_cte h
+    ON po.purchasingdocument = h.purchasingdocument
+   AND po.purchasingdocumentitem = h.purchasingdocumentitem
+LEFT JOIN silver_zmmpurchasingdoc_cte d
+    ON po.purchasingdocument = d.purchasingdocument
+)
+
+
+
 , latest_material_price_cte AS (
     SELECT
-        material,
-        plant,
-        purchasingdocument,
-        purchasingdocumentitem,
-
-        CASE
-            WHEN free_item = 'X' THEN NULL
-            WHEN orderquantity = 0 THEN NULL
-            ELSE CAST(netpriceamount / orderquantity AS DECIMAL(18,4))
-        END AS latest_material_price_per_unit,
-
-        purchasingdocumentorderdate,
-
+        po.material,
+        po.plant,
+        lg.price_per_unit            AS latest_material_price_per_unit,
+        d.purchasingdocumentorderdate AS latest_price_po_date,
+        d.purchasingdocument AS latest_price_po_document,
         ROW_NUMBER() OVER (
-            PARTITION BY material, plant
-            ORDER BY purchasingdocumentorderdate DESC,
-                     purchasingdocument DESC,
-                     purchasingdocumentitem DESC
+            PARTITION BY po.material, po.plant
+            ORDER BY d.purchasingdocumentorderdate DESC,
+                     po.ingestiontime DESC
         ) AS rn
-    FROM (
-        SELECT
-            po.material,
-            po.plant,
-            po.purchasingdocument,
-            po.purchasingdocumentitem,
-            po.orderquantity,
-            po.netpriceamount,
-            po.free_item,
-            d.purchasingdocumentorderdate
-        FROM silver_zimmpurgdocitem_cte po
-        JOIN silver_zmmpurchasingdoc_cte d
-            ON po.purchasingdocument = d.purchasingdocument
-        WHERE po.netpriceamount IS NOT NULL AND po.netpriceamount <> 0
-    ) x
+    FROM silver_zimmpurgdocitem_cte po
+    LEFT JOIN logic_cal_cte lg
+        ON po.purchasingdocument = lg.purchasingdocument
+       AND po.purchasingdocumentitem = lg.purchasingdocumentitem
+    LEFT JOIN silver_zmmpurchasingdoc_cte d
+        ON po.purchasingdocument = d.purchasingdocument
+    WHERE lg.price_per_unit IS NOT NULL
 )
+
 
 
 SELECT
@@ -233,6 +342,7 @@ SELECT
     po.netpriceamount,
     po.netamount,
     po.netpricequantity,
+    lg.price_per_unit,
     h.latest_postingdate as latest_grdate,
     po.orderquantity as po_quantity,
     po.orderquantityunit as purchasing_unit,
@@ -275,20 +385,15 @@ SELECT
     h.gr_value_thb        AS total_gr_value_thb,
     h.gr_value_pocurrency  AS total_gr_value_po_currency,
     
-    CAST(
-        CASE
-            WHEN h.gr_qty IS NULL OR h.gr_qty = 0 THEN NULL
-            ELSE h.gr_value_thb / h.gr_qty
-        END AS DECIMAL(18,5)) 
-    AS gr_value_per_unit,
+    lg.gr_value_per_unit,
     
 
     CAST(p.freight_amount AS DECIMAL(18,3))      AS total_freight_amount,
-    CAST(p.freight_amount*d.exchangerate  AS DECIMAL(18,3))     AS total_freight_amount_thb,
+    CAST(p.freight_amount_thb  AS DECIMAL(18,3))     AS total_freight_amount_thb,
     CAST(p.clearance_amount AS DECIMAL(18,3))     AS total_clearance_amount,
-    CAST(p.clearance_amount*d.exchangerate AS DECIMAL(18,3))    AS total_clearance_amount_thb,
+    CAST(p.clearance_amount_thb AS DECIMAL(18,3))    AS total_clearance_amount_thb,
     CAST(p.discount_amount   AS DECIMAL(18,3))   AS total_discount_amount,
-    CAST(p.discount_amount*d.exchangerate AS DECIMAL(18,3))  AS total_discount_amount_thb,
+    CAST(p.discount_amount_thb AS DECIMAL(18,3))  AS total_discount_amount_thb,
     h.gr_qty         AS total_gr_qty,
     
     p.po_actual_value     AS total_po_actual_value,
@@ -296,10 +401,11 @@ SELECT
     d.suppliername,
     d.paymentterms,
 
-    CASE
-        WHEN po.orderquantity - COALESCE(h.gr_qty,0) < 0 THEN 0
-        ELSE po.orderquantity - COALESCE(h.gr_qty,0)
-    END AS gr_quantity_remain,
+    po.iscompletelydelivered,
+    lg.gr_quantity_remain,
+    lg.gr_value_remain,
+    lg.gr_value_remain_thb,
+
 
     d.releasecode,
     a.approvercode,
@@ -318,7 +424,9 @@ SELECT
 
     po.safetystockquantity,
     lm.latest_material_price_per_unit,
-    lm.purchasingdocumentorderdate AS latest_price_po_date,
+    lm.latest_price_po_date,
+    lm.latest_price_po_document,
+    
     po.purchasinginforecord,
     po.ingestiontime,
     po.isinsert,
@@ -352,3 +460,6 @@ LEFT JOIN latest_material_price_cte lm
 LEFT JOIN silver_zimmprgdocsl_cte sl
     ON po.purchasingdocument = sl.purchasingdocument
     AND po.purchasingdocumentitem = sl.purchasingdocumentitem
+LEFT JOIN logic_cal_cte lg
+    ON po.purchasingdocument = lg.purchasingdocument
+    AND po.purchasingdocumentitem = lg.purchasingdocumentitem
