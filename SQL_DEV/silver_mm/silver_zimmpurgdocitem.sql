@@ -86,6 +86,7 @@ SELECT DISTINCT
     CAST(R.netamount AS DECIMAL(18,3)) as netamount,
     CAST(R.netpricequantity AS DECIMAL(18,3)) as netpricequantity,
     CAST(R.purchasingdocumentdeletioncode AS STRING) purchasingdocumentdeletioncode,
+    CAST(R.IsCompletelyDelivered AS STRING) iscompletelydelivered,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
