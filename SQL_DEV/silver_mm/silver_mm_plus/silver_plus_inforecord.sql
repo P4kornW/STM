@@ -69,7 +69,8 @@ SELECT
     po.purchasingdocument, -- grain
     po.purchasingdocumentitem, -- grain
     i.materialplanneddeliverydurn,
-    i.pricevalidityenddate,
+    COALESCE(i.pricevalidityenddate, DATE '9999-12-31')
+        AS pricevalidityenddate,
     po.material,
     po.material_description,
     po.materialgroup,
