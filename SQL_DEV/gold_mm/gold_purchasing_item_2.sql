@@ -248,7 +248,7 @@ SELECT
         CASE
             WHEN h.gr_qty IS NULL OR h.gr_qty = 0 THEN NULL
         ELSE h.gr_value_thb / h.gr_qty
-        END AS DECIMAL(18,5)
+        END AS DECIMAL(18,3)
     ) AS gr_value_per_unit,
 
     /* ===== GR VALUE REMAIN ===== */
@@ -289,7 +289,7 @@ SELECT
                     ELSE po.netpriceamount / po.netpricequantity
                  END)
                 * d.exchangerate
-        END AS DECIMAL(18,3)
+        END AS DECIMAL(18,4)
     ) AS gr_value_remain_thb
 
 FROM silver_zimmpurgdocitem_cte po
@@ -388,12 +388,12 @@ SELECT
     lg.gr_value_per_unit,
     
 
-    CAST(p.freight_amount AS DECIMAL(18,3))      AS total_freight_amount,
-    CAST(p.freight_amount_thb  AS DECIMAL(18,3))     AS total_freight_amount_thb,
-    CAST(p.clearance_amount AS DECIMAL(18,3))     AS total_clearance_amount,
-    CAST(p.clearance_amount_thb AS DECIMAL(18,3))    AS total_clearance_amount_thb,
-    CAST(p.discount_amount   AS DECIMAL(18,3))   AS total_discount_amount,
-    CAST(p.discount_amount_thb AS DECIMAL(18,3))  AS total_discount_amount_thb,
+    CAST(p.freight_amount AS DECIMAL(18,4))      AS total_freight_amount,
+    CAST(p.freight_amount_thb  AS DECIMAL(18,4))     AS total_freight_amount_thb,
+    CAST(p.clearance_amount AS DECIMAL(18,4))     AS total_clearance_amount,
+    CAST(p.clearance_amount_thb AS DECIMAL(18,4))    AS total_clearance_amount_thb,
+    CAST(p.discount_amount   AS DECIMAL(18,4))   AS total_discount_amount,
+    CAST(p.discount_amount_thb AS DECIMAL(18,4))  AS total_discount_amount_thb,
     h.gr_qty         AS total_gr_qty,
     
     p.po_actual_value     AS total_po_actual_value,
