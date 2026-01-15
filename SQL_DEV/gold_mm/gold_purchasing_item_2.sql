@@ -94,7 +94,7 @@ silver_zmmpurchasingdoc_cte AS (
         incotermsclassification,
         purchasingdocumentcondition,
         purgreleasetimetotalamount
-    FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false and releasecode = 'R'
+    FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false 
 ),
 
 /* =======================
@@ -331,6 +331,7 @@ SELECT
     po.purchasingdocumentitem,
     d.purchasingdocumentorderdate as purchasing_date,
     po.purchaserequisition as reference_pr_number,
+    d.purchasingdocumentcondition,
     po.free_item,
     po.material,
     po.material_description,
@@ -446,7 +447,7 @@ LEFT JOIN silver_ziprapprov_cte ar
 LEFT JOIN silver_zmmpurchasingdoc_cte d
     ON po.purchasingdocument = d.purchasingdocument
 LEFT JOIN silver_zipoapprov_cte a
-    ON d.purchasingdocument = a.purchasingdocument
+    ON d.purchasingdocument = a.purchasingdocument AND d.releasecode = 'R'
 LEFT JOIN silver_zipricingelement_cte p
     ON d.purchasingdocumentcondition = p.pricingdocument
    AND po.purchasingdocumentitem = p.pricingdocumentitem
