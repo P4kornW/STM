@@ -42,7 +42,7 @@ silver_zipritem_cte AS (
         purchaserequisition,
         purchaserequisitionitem,
         purchasereqnitemuniqueid
-    FROM silver_mm_zipritem WHERE isdelete = false AND isdeleted IS NULL
+    FROM silver_mm_zipritem WHERE isdelete = false
 ),
 
 silver_zimmprgdocsl_cte AS (
@@ -64,7 +64,7 @@ silver_zipoapprov_cte AS (
         approverdescription,
         approveusername,
         approverfullname
-    FROM silver_mm_zipoapprov WHERE isdelete = false
+    FROM silver_mm_zipoapprov 
 ),
 
 silver_ziprapprov_cte AS (
@@ -94,7 +94,7 @@ silver_zmmpurchasingdoc_cte AS (
         incotermsclassification,
         purchasingdocumentcondition,
         purgreleasetimetotalamount
-    FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false
+    FROM silver_mm_zmmpurchasingdoc WHERE isdelete = false and releasecode = 'R'
 ),
 
 /* =======================
