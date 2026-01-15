@@ -33,7 +33,7 @@ Ranked_Raw_Batch AS (
     INNER JOIN Final_Processing_Scope S
         ON R.purchasingdocument = S.purchasingdocument
     WHERE
-        R.purchasingdocument IS NOT NULL
+        R.purchasingdocument IS NOT NULL AND approvercode = '00'
 
 )
 
