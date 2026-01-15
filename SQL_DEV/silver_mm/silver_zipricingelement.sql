@@ -36,7 +36,7 @@ SELECT DISTINCT
     CAST(R.conditioninactivereason AS STRING) AS conditioninactivereason,
     CAST(R.conditioncurrency AS STRING) AS conditioncurrency,
     CAST(R.conditionratevalue AS DECIMAL(18,3)) AS conditionratevalue,
-    CAST(R.PriceDetnExchangeRate AS DECIMAL(18,3)) AS pricedetnexchangerate,
+    CAST(R.PriceDetnExchangeRate AS DECIMAL(18,4)) AS pricedetnexchangerate,
     R.ingestiontime,
     R.isupsert,
     R.isdelete,
