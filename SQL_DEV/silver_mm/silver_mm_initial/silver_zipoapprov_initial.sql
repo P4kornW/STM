@@ -10,6 +10,7 @@ WITH Ranked_Raw_Batch AS (
         purchasingdocument IS NOT NULL
         -- AND isdelete = false
         -- AND isapprove = 'Yes'
+        AND approvercode = '00'
 )
 
 SELECT
