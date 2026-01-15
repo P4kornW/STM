@@ -51,7 +51,7 @@ SELECT
     CAST(R.purchasinggroup AS STRING) AS purchasinggroup,
     CAST(G.purchasinggroupname AS STRING) AS purchasinggroupname,
     CAST(R.documentcurrency AS STRING) AS documentcurrency,
-    CAST(R.exchangerate AS DOUBLE) AS exchangerate,
+    CAST(R.exchangerate AS DECIMAL(18,4)) AS exchangerate,
     to_date(R.purchasingdocumentorderdate, 'yyyyMMdd') AS purchasingdocumentorderdate,
     CAST(R.paymentterms AS STRING) AS paymentterms,
     CAST(R.incotermsclassification AS STRING) AS incotermsclassification,  
