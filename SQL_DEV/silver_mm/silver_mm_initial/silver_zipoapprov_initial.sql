@@ -8,8 +8,6 @@ WITH Ranked_Raw_Batch AS (
     FROM zipoapprov
     WHERE
         purchasingdocument IS NOT NULL
-        -- AND isdelete = false
-        -- AND isapprove = 'Yes'
         AND approvercode = '00'
 )
 
