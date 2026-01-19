@@ -18,7 +18,7 @@ WITH Ranked_Raw_Batch AS (
         AND materialdocumentkey6 IS NOT NULL
 )
 
-SELECT DISTINCT
+SELECT
     CAST(R.materialdocumentkey1       AS STRING)        AS materialdocumentkey1,
     CAST(R.materialdocumentkey2       AS STRING)        AS materialdocumentkey2,
     CAST(R.materialdocumentkey3       AS STRING)        AS materialdocumentkey3,
