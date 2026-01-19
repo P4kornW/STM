@@ -12,14 +12,14 @@ WITH Ranked_Raw_Batch AS (
         purchasinginforecord IS NOT NULL 
         AND purchasingorganization IS NOT NULL
         AND purchasinginforecordcategory IS NOT NULL
-        AND plant IS NOT NULL
+        
 )
 
 SELECT DISTINCT
     CAST(R.purchasinginforecord AS STRING) AS purchasinginforecord,
     CAST(R.purchasingorganization AS STRING) AS purchasingorganization,
     CAST(R.purchasinginforecordcategory AS STRING) AS purchasinginforecordcategory,
-    CAST(R.plant AS STRING) AS plant,
+    COALESCE(CAST(R.plant AS STRING),'NULL_KEY') AS plant,
     CAST(R.materialplanneddeliverydurn AS DOUBLE) AS materialplanneddeliverydurn,
     to_date(R.pricevalidityenddate, 'yyyyMMdd') AS pricevalidityenddate,
     R.ingestiontime,
