@@ -1,34 +1,5 @@
 WITH 
 
-/* =========================
-   1) หา scope ของ PO item ที่ต้อง reprocess
-   ========================= */
-Final_Processing_Scope AS (
-    SELECT DISTINCT R.purchasingdocument, R.purchasingdocumentitem
-    FROM zimmpurgdocitem R
-    LEFT JOIN ziproduct PR
-        ON R.material = PR.product
-    LEFT JOIN ziprduom U
-        ON PR.product = U.product
-    LEFT JOIN ziprdplant P
-        ON R.material = P.product
-       AND R.plant = P.plant
-    LEFT JOIN ziproductgrp PGR
-        ON R.materialgroup = PGR.materialgroup
-    WHERE 
-        -- transaction เปลี่ยนใน 1 วันล่าสุด
-        R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
-
-        -- หรือ master ตัวใดตัวหนึ่งเปลี่ยนใน 1 วันล่าสุด
-        OR PR.ingestiontime  >= (current_timestamp() - INTERVAL 1 DAY)
-        OR U.ingestiontime   >= (current_timestamp() - INTERVAL 1 DAY)
-        OR P.ingestiontime   >= (current_timestamp() - INTERVAL 1 DAY)
-        OR PGR.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
-),
-
-/* =========================
-   2) ดึงข้อมูลเต็มของ key ที่อยู่ใน scope
-   ========================= */
 Ranked_Raw_Batch AS (
     SELECT 
         R.*, 
@@ -37,12 +8,10 @@ Ranked_Raw_Batch AS (
             ORDER BY R.ingestiontime DESC
         ) AS rn
     FROM zimmpurgdocitem R
-    INNER JOIN Final_Processing_Scope S
-        ON  R.purchasingdocument     = S.purchasingdocument
-        AND R.purchasingdocumentitem = S.purchasingdocumentitem
     WHERE 
         R.purchasingdocument IS NOT NULL 
         AND R.purchasingdocumentitem IS NOT NULL
+        AND R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
 )
 
 /* =========================
