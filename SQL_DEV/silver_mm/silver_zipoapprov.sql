@@ -1,24 +1,5 @@
 WITH 
 
-/* =========================
-   1) หา scope ของ PO ที่ต้อง reprocess
-   ========================= */
-Final_Processing_Scope AS (
-    SELECT DISTINCT R.purchasingdocument
-    FROM zipoapprov R
-    LEFT JOIN ziuser U
-        ON R.approveusername = U.userid
-    WHERE
-        -- transaction เปลี่ยน
-        R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
-
-        -- หรือ master user เปลี่ยน
-        OR U.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
-),
-
-/* =========================
-   2) ดึงข้อมูลเต็มของ PO ที่อยู่ใน scope
-   ========================= */
 Ranked_Raw_Batch AS (
     SELECT
         R.*,
@@ -30,11 +11,10 @@ Ranked_Raw_Batch AS (
                 R.ingestiontime DESC
         ) AS rn
     FROM zipoapprov R
-    INNER JOIN Final_Processing_Scope S
-        ON R.purchasingdocument = S.purchasingdocument
     WHERE
         R.purchasingdocument IS NOT NULL AND approvercode = '00'
-
+        AND R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
+        
 )
 
 /* =========================
