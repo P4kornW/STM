@@ -1,5 +1,5 @@
- WITH silver_ziinforecorgdata_cte AS (
-        SELECT
+WITH silver_ziinforecorgdata_cte AS (
+    SELECT
         purchasinginforecord,
         purchasingorganization,
         purchasinginforecordcategory,
@@ -11,7 +11,8 @@
         isdelete,
         isinsert,
         changetype
-    FROM silver_mm_ziinforecorgdata where isdelete = false
+    FROM silver_mm_ziinforecorgdata
+    WHERE isdelete = false
 ),
 
 silver_zimmpurgdocitem_cte AS (
@@ -38,7 +39,9 @@ silver_zimmpurgdocitem_cte AS (
         netamount,
         netpricequantity,
         netpriceamount
-    FROM silver_mm_zimmpurgdocitem where isdelete = false AND purchasingdocumentdeletioncode IS NULL
+    FROM silver_mm_zimmpurgdocitem
+    WHERE isdelete = false
+      AND purchasingdocumentdeletioncode IS NULL
 ),
 
 silver_zmmpurchasingdoc_cte AS (
@@ -57,20 +60,57 @@ silver_zmmpurchasingdoc_cte AS (
         incotermsclassification,
         purchasingdocumentcondition,
         purgreleasetimetotalamount
-    FROM silver_mm_zmmpurchasingdoc where isdelete = false
+    FROM silver_mm_zmmpurchasingdoc
+    WHERE isdelete = false
+),
+
+/* =========================================================
+   INFORECORD JOIN WITH PLANT-FIRST + FALLBACK PLANT = NULL
+   ========================================================= */
+inforecord_ranked_cte AS (
+    SELECT
+        po.purchasingdocument,
+        po.purchasingdocumentitem,
+
+        i.purchasinginforecord,
+        i.purchasingorganization,
+        i.purchasinginforecordcategory,
+        i.plant AS info_plant,
+        i.materialplanneddeliverydurn,
+        COALESCE(i.pricevalidityenddate, DATE '9999-12-31') AS pricevalidityenddate,
+        i.ingestiontime,
+        i.isinsert,
+        i.isupsert,
+        i.isdelete,
+        i.changetype,
+
+        ROW_NUMBER() OVER (
+            PARTITION BY po.purchasingdocument, po.purchasingdocumentitem
+            ORDER BY
+                CASE
+                    WHEN i.plant = po.plant THEN 1   -- match plant
+                    WHEN i.plant IS NULL THEN 2      -- fallback
+                    ELSE 3
+                END
+        ) AS rn
+
+    FROM silver_zimmpurgdocitem_cte po
+    LEFT JOIN silver_ziinforecorgdata_cte i
+        ON i.purchasinginforecord = po.purchasinginforecord
 )
 
-SELECT 
-
-    i.purchasinginforecord, -- grain
-    i.purchasingorganization, -- grain
-    i.purchasinginforecordcategory,  -- grain
-    i.plant,  -- grain
-    po.purchasingdocument, -- grain
-    po.purchasingdocumentitem, -- grain
+SELECT
+    /* ===== INFO RECORD ===== */
+    i.purchasinginforecord,
+    i.purchasingorganization,
+    i.purchasinginforecordcategory,
+    i.info_plant AS plant,
     i.materialplanneddeliverydurn,
-    COALESCE(i.pricevalidityenddate, DATE '9999-12-31')
-        AS pricevalidityenddate,
+    i.pricevalidityenddate,
+
+    /* ===== PO ITEM (GRAIN) ===== */
+    po.purchasingdocument,
+    po.purchasingdocumentitem,
     po.material,
     po.material_description,
     po.materialgroup,
@@ -86,6 +126,8 @@ SELECT
     po.netamount,
     po.taxcode,
     po.safetystockquantity,
+
+    /* ===== PO HEADER ===== */
     h.supplier,
     h.suppliername,
     h.releasecode,
@@ -97,16 +139,21 @@ SELECT
     h.incotermsclassification,
     h.purchasingdocumentcondition,
     h.purgreleasetimetotalamount,
+
+    /* ===== META ===== */
     i.ingestiontime,
     i.isinsert,
     i.isupsert,
     i.isdelete,
     i.changetype,
-    current_timestamp() as last_main_silver_modified_dt
+    current_timestamp() AS last_main_silver_modified_dt
 
+FROM silver_zimmpurgdocitem_cte po
 
-    FROM silver_ziinforecorgdata_cte i
-    JOIN silver_zimmpurgdocitem_cte po
-    ON i.purchasinginforecord = po.purchasinginforecord
-    JOIN silver_zmmpurchasingdoc_cte h
-    ON po.purchasingdocument = h.purchasingdocument
+LEFT JOIN inforecord_ranked_cte i
+    ON po.purchasingdocument = i.purchasingdocument
+   AND po.purchasingdocumentitem = i.purchasingdocumentitem
+   AND i.rn = 1
+
+LEFT JOIN silver_zmmpurchasingdoc_cte h
+    ON po.purchasingdocument = h.purchasingdocument 
