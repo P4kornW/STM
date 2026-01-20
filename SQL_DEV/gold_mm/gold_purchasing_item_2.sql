@@ -364,19 +364,39 @@ SELECT
     --- 2) convert เป็น KG ถ้า RM ---
    CAST(
     CASE 
-        WHEN LEFT(po.material,2) = 'RM' AND po.quantity_numerator_kg IS NOT NULL
-            THEN (po.orderquantity * po.quantity_numerator_kg) / po.quantity_denominator_kg
+        WHEN LEFT(po.material,2) = 'RM'
+             AND po.quantity_numerator IS NOT NULL
+             AND po.quantity_denominator IS NOT NULL
+             AND po.quantity_denominator <> 0
+             AND po.quantity_numerator_kg IS NOT NULL
+             AND po.quantity_denominator_kg IS NOT NULL
+             AND po.quantity_numerator_kg <> 0
+            THEN
+                po.orderquantity
+                * (po.quantity_numerator / po.quantity_denominator)              -- PO → base
+                * (po.quantity_denominator_kg / po.quantity_numerator_kg)        -- base → KG
             ELSE NULL
-        END AS DECIMAL(18,3)
+        END
+    AS DECIMAL(18,3)
     ) AS quantity_in_kg,
 
     --- 3) convert เป็น EA ถ้า PK / SP ---
     CAST(
     CASE 
-        WHEN LEFT(po.material,2) IN ('PK','SP') AND po.quantity_numerator_ea IS NOT NULL
-            THEN (po.orderquantity * po.quantity_numerator_ea) / po.quantity_denominator_ea
+        WHEN LEFT(po.material,2) IN ('PK','SP')
+             AND po.quantity_numerator IS NOT NULL
+             AND po.quantity_denominator IS NOT NULL
+             AND po.quantity_denominator <> 0
+             AND po.quantity_numerator_ea IS NOT NULL
+             AND po.quantity_denominator_ea IS NOT NULL
+             AND po.quantity_numerator_ea <> 0
+            THEN
+                po.orderquantity
+                * (po.quantity_numerator / po.quantity_denominator)              -- PO → base
+                * (po.quantity_denominator_ea / po.quantity_numerator_ea)        -- base → EA
             ELSE NULL
-        END AS DECIMAL(18,3)
+        END
+    AS DECIMAL(18,3)
     ) AS quantity_in_ea,
 
     
