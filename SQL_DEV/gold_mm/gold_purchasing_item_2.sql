@@ -342,6 +342,7 @@ SELECT
     sl.schedulelinedeliverydate as po_delivery_date,
     po.netpriceamount,
     po.netamount,
+    CAST(po.netamount * d.exchangerate AS DECIMAL(18,4)) AS netamount_thb,
     po.netpricequantity,
     lg.price_per_unit,
     h.latest_postingdate as latest_grdate,
@@ -418,6 +419,7 @@ SELECT
     h.gr_qty         AS total_gr_qty,
     
     p.po_actual_value     AS total_po_actual_value,
+    CAST(p.po_actual_value * d.exchangerate AS DECIMAL(18,4)) AS total_po_actual_value_thb,
     substr(d.supplier,3) as supplier,
     d.suppliername,
     d.paymentterms,
