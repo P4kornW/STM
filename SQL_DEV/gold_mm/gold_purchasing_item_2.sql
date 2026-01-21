@@ -348,6 +348,7 @@ SELECT
     h.latest_postingdate as latest_grdate,
     po.orderquantity as po_quantity,
     po.orderquantityunit as purchasing_unit,
+    uom_p.unitofmeasure_e as purchasing_unit_en,
     
     --- 1) convert ตาม UOM master ---
 
@@ -361,6 +362,7 @@ SELECT
         END AS DECIMAL(18,3))
     AS material_qty_conversion,
     po.baseunit,
+    uom_b.unitofmeasure_e as baseunit_en,
     
     --- 2) convert เป็น KG ถ้า RM ---
    CAST(
@@ -486,3 +488,7 @@ LEFT JOIN silver_zimmprgdocsl_cte sl
 LEFT JOIN logic_cal_cte lg
     ON po.purchasingdocument = lg.purchasingdocument
     AND po.purchasingdocumentitem = lg.purchasingdocumentitem
+LEFT JOIN ziunitofmeasure uom_p
+    ON po.orderquantityunit = uom_p.unitofmeasure
+LEFT JOIN ziunitofmeasure uom_b
+    ON po.baseunit = uom_b.unitofmeasure
