@@ -353,56 +353,70 @@ SELECT
     --- 1) convert ตาม UOM master ---
 
     CAST(
-        CASE
-            WHEN po.quantity_numerator IS NULL
-                OR po.quantity_denominator IS NULL
-                OR po.quantity_denominator = 0
-            THEN NULL
-            ELSE (po.orderquantity * po.quantity_numerator) / po.quantity_denominator
-        END AS DECIMAL(18,3))
-    AS material_qty_conversion,
+    CASE
+        -- มี conversion master PO → Base
+        WHEN po.quantity_numerator IS NOT NULL
+         AND po.quantity_denominator IS NOT NULL
+         AND po.quantity_denominator <> 0
+        THEN
+            po.orderquantity
+            * (po.quantity_numerator / po.quantity_denominator)
+
+        -- ไม่มี conversion master
+            ELSE po.orderquantity
+        END
+    AS DECIMAL(18,3)
+    ) AS material_qty_conversion,
     po.baseunit,
     uom_b.unitofmeasure_e as baseunit_en,
     
     --- 2) convert เป็น KG ถ้า RM ---
    CAST(
-    CASE 
-        WHEN LEFT(po.material,2) = 'RM'
-             AND po.quantity_numerator IS NOT NULL
-             AND po.quantity_denominator IS NOT NULL
-             AND po.quantity_denominator <> 0
-             AND po.quantity_numerator_kg IS NOT NULL
-             AND po.quantity_denominator_kg IS NOT NULL
-             AND po.quantity_numerator_kg <> 0
+    CASE
+        -- มี conversion ไป KG
+            WHEN po.quantity_numerator IS NOT NULL
+            AND po.quantity_denominator IS NOT NULL
+            AND po.quantity_denominator <> 0
+            AND po.quantity_numerator_kg IS NOT NULL
+            AND po.quantity_denominator_kg IS NOT NULL
+            AND po.quantity_numerator_kg <> 0
             THEN
                 po.orderquantity
-                * (po.quantity_numerator / po.quantity_denominator)              -- PO → base
-                * (po.quantity_denominator_kg / po.quantity_numerator_kg)        -- base → KG
-            ELSE NULL
+                * (po.quantity_numerator / po.quantity_denominator)      -- PO → Base
+                * (po.quantity_denominator_kg / po.quantity_numerator_kg) -- Base → KG
+
+            -- PO unit เป็น G
+            WHEN po.orderquantityunit = 'G'
+            THEN po.orderquantity / 1000
+
+            -- อื่นๆ
+            ELSE po.orderquantity
         END
     AS DECIMAL(18,3)
     ) AS quantity_in_kg,
 
     --- 3) convert เป็น EA ถ้า PK / SP ---
     CAST(
-    CASE 
-        WHEN LEFT(po.material,2) IN ('PK','SP')
-             AND po.quantity_numerator IS NOT NULL
-             AND po.quantity_denominator IS NOT NULL
-             AND po.quantity_denominator <> 0
-             AND po.quantity_numerator_ea IS NOT NULL
-             AND po.quantity_denominator_ea IS NOT NULL
-             AND po.quantity_numerator_ea <> 0
-            THEN
-                po.orderquantity
-                * (po.quantity_numerator / po.quantity_denominator)              -- PO → base
-                * (po.quantity_denominator_ea / po.quantity_numerator_ea)        -- base → EA
-            ELSE NULL
+    CASE
+        -- มี conversion ไป EA
+        WHEN po.quantity_numerator IS NOT NULL
+         AND po.quantity_denominator IS NOT NULL
+         AND po.quantity_denominator <> 0
+         AND po.quantity_numerator_ea IS NOT NULL
+         AND po.quantity_denominator_ea IS NOT NULL
+         AND po.quantity_numerator_ea <> 0
+        THEN
+            po.orderquantity
+            * (po.quantity_numerator / po.quantity_denominator)     -- PO → Base
+            * (po.quantity_denominator_ea / po.quantity_numerator_ea) -- Base → EA
+
+            -- ไม่มี conversion EA
+            ELSE po.orderquantity
         END
     AS DECIMAL(18,3)
     ) AS quantity_in_ea,
 
-    
+
     d.documentcurrency,
     d.exchangerate,
 
