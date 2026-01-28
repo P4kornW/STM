@@ -105,7 +105,7 @@ silver_zimmpurdochist_cte AS (
         purchasingdocument,
         purchasingdocumentitem,
 
-        MAX(postingdate) as latest_postingdate,
+        MAX(postingdate) as latest_grdate,
 
         SUM(
             CASE -- GR Quantity
@@ -240,7 +240,7 @@ SELECT
         CASE
             WHEN po.netpricequantity IS NULL OR po.netpricequantity = 0 THEN NULL
             ELSE po.netpriceamount / po.netpricequantity
-        END AS DECIMAL(18,3)
+        END AS DECIMAL(18,4)
     ) AS price_per_unit,
 
     /* ===== GR VALUE PER UNIT ===== */
@@ -248,7 +248,7 @@ SELECT
         CASE
             WHEN h.gr_qty IS NULL OR h.gr_qty = 0 THEN NULL
         ELSE h.gr_value_thb / h.gr_qty
-        END AS DECIMAL(18,3)
+        END AS DECIMAL(18,4)
     ) AS gr_value_per_unit,
 
     /* ===== GR VALUE REMAIN ===== */
@@ -345,7 +345,7 @@ SELECT
     CAST(po.netamount * d.exchangerate AS DECIMAL(18,4)) AS netamount_thb,
     po.netpricequantity,
     lg.price_per_unit,
-    h.latest_postingdate as latest_grdate,
+    h.latest_grdate ,
     po.orderquantity as po_quantity,
     po.orderquantityunit as purchasing_unit,
     uom_p.unitofmeasure_e as purchasing_unit_en,
@@ -460,6 +460,7 @@ SELECT
     DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days,
     DATEDIFF( day, a.approvedate, h.latest_postingdate ) AS po_approval_to_latest_gr_days,
     DATEDIFF( day, ar.updatedate, h.latest_postingdate ) AS pr_approval_to_latest_gr_days,
+    DATEDIFF( day, sl.schedulelinedeliverydate, h.latest_postingdate ) AS po_delivery_date_to_latest_gr_days,
 
     po.safetystockquantity,
     lm.latest_material_price_per_unit,
