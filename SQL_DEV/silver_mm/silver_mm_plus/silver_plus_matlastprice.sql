@@ -10,7 +10,7 @@ WITH base_po_price AS (
                 WHEN po.netpricequantity IS NULL OR po.netpricequantity = 0
                 THEN NULL
                 ELSE po.netpriceamount / po.netpricequantity
-            END AS DECIMAL(18,3)
+            END AS DECIMAL(18,4)
         ) AS price_per_unit
 
     FROM silver_mm_zimmpurgdocitem po
@@ -30,7 +30,7 @@ ranked_latest_price AS (
         ROW_NUMBER() OVER (
             PARTITION BY b.material
             ORDER BY
-                d.purchasingdocumentorderdate DESC,
+                b.purchasingdocument DESC,
                 b.ingestiontime DESC
         ) AS rn
 
