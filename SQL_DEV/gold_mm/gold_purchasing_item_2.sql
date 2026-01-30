@@ -347,8 +347,8 @@ SELECT
     lg.price_per_unit,
     h.latest_grdate ,
     po.orderquantity as po_quantity,
-    po.orderquantityunit as purchasing_unit,
-    uom_p.unitofmeasure_e as purchasing_unit_en,
+    -- po.orderquantityunit as purchasing_unit,
+    uom_p.unitofmeasure_e as purchasing_unit,
     
     --- 1) convert ตาม UOM master ---
 
@@ -363,12 +363,12 @@ SELECT
             * (po.quantity_numerator / po.quantity_denominator)
 
         -- ไม่มี conversion master
-            ELSE po.orderquantity
+            ELSE NULL
         END
     AS DECIMAL(18,3)
     ) AS material_qty_conversion,
-    po.baseunit,
-    uom_b.unitofmeasure_e as baseunit_en,
+    -- po.baseunit,
+    uom_b.unitofmeasure_e as baseunit,
     
     --- 2) convert เป็น KG ถ้า RM ---
    CAST(
@@ -390,7 +390,7 @@ SELECT
             THEN po.orderquantity / 1000
 
             -- อื่นๆ
-            ELSE po.orderquantity
+            ELSE null
         END
     AS DECIMAL(18,3)
     ) AS quantity_in_kg,
@@ -411,7 +411,7 @@ SELECT
             * (po.quantity_denominator_ea / po.quantity_numerator_ea) -- Base → EA
 
             -- ไม่มี conversion EA
-            ELSE po.orderquantity
+            ELSE null
         END
     AS DECIMAL(18,3)
     ) AS quantity_in_ea,
@@ -458,9 +458,9 @@ SELECT
     po.taxcode,
 
     DATEDIFF( day, ar.updatedate, a.approvedate ) AS pr_to_po_approval_days,
-    DATEDIFF( day, a.approvedate, h.latest_postingdate ) AS po_approval_to_latest_gr_days,
-    DATEDIFF( day, ar.updatedate, h.latest_postingdate ) AS pr_approval_to_latest_gr_days,
-    DATEDIFF( day, sl.schedulelinedeliverydate, h.latest_postingdate ) AS po_delivery_date_to_latest_gr_days,
+    DATEDIFF( day, a.approvedate, h.latest_grdate ) AS po_approval_to_latest_gr_days,
+    DATEDIFF( day, ar.updatedate, h.latest_grdate ) AS pr_approval_to_latest_gr_days,
+    DATEDIFF( day, sl.schedulelinedeliverydate, h.latest_grdate ) AS po_delivery_date_to_latest_gr_days,
 
     po.safetystockquantity,
     lm.latest_material_price_per_unit,
