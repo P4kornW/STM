@@ -461,6 +461,22 @@ SELECT
     DATEDIFF( day, a.approvedate, h.latest_grdate ) AS po_approval_to_latest_gr_days,
     DATEDIFF( day, ar.updatedate, h.latest_grdate ) AS pr_approval_to_latest_gr_days,
     DATEDIFF( day, sl.schedulelinedeliverydate, h.latest_grdate ) AS po_delivery_date_to_latest_gr_days,
+    DATEDIFF( day, d.purchasingdocumentorderdate, sl.schedulelinedeliverydate ) AS po_document_date_to_po_delivery_date,
+
+    CAST(
+    CASE
+            -- ไม่มี GR
+            WHEN h.latest_grdate IS NULL THEN 0
+
+            -- GR มาก่อน delivery
+            WHEN DATEDIFF( day,sl.schedulelinedeliverydate  , h.latest_grdate) < 0 THEN 0
+
+            -- ปกติ
+            ELSE DATEDIFF( day, sl.schedulelinedeliverydate  , h.latest_grdate)
+        END
+        AS INT
+    ) AS late_days,
+    
 
     po.safetystockquantity,
     lm.latest_material_price_per_unit,
