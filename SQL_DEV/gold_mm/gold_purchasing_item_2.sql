@@ -346,7 +346,7 @@ SELECT
     CAST(po.netamount * d.exchangerate AS DECIMAL(18,4)) AS netamount_thb,
     po.netpricequantity,
     lg.price_per_unit,
-    h.first_grdate
+    h.first_grdate,
     h.latest_grdate ,
     po.orderquantity as po_quantity,
     -- po.orderquantityunit as purchasing_unit,
