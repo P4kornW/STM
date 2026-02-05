@@ -105,6 +105,7 @@ silver_zimmpurdochist_cte AS (
         purchasingdocument,
         purchasingdocumentitem,
 
+        MIN(postingdate) as first_grdate,
         MAX(postingdate) as latest_grdate,
 
         SUM(
@@ -345,6 +346,7 @@ SELECT
     CAST(po.netamount * d.exchangerate AS DECIMAL(18,4)) AS netamount_thb,
     po.netpricequantity,
     lg.price_per_unit,
+    h.first_grdate
     h.latest_grdate ,
     po.orderquantity as po_quantity,
     -- po.orderquantityunit as purchasing_unit,
