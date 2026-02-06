@@ -464,6 +464,8 @@ SELECT
     DATEDIFF( day, ar.updatedate, h.latest_grdate ) AS pr_approval_to_latest_gr_days,
     DATEDIFF( day, sl.schedulelinedeliverydate, h.latest_grdate ) AS po_delivery_date_to_latest_gr_days,
     DATEDIFF( day, d.purchasingdocumentorderdate, sl.schedulelinedeliverydate ) AS po_document_date_to_po_delivery_date,
+    DATEDIFF( day, sl.schedulelinedeliverydate, h.first_grdate ) AS po_delivery_date_to_first_gr_date,
+    DATEDIFF( day, a.approvedate, h.first_grdate ) AS po_approval_to_first_gr_date,
 
     CAST(
     CASE
