@@ -2,16 +2,15 @@ WITH
 
 Ranked_Raw_Batch AS (
     SELECT 
-        R.*, 
+        *, 
         ROW_NUMBER() OVER (
-            PARTITION BY R.purchasingdocument, R.purchasingdocumentitem
-            ORDER BY R.ingestiontime DESC
+            PARTITION BY purchasingdocument, purchasingdocumentitem
+            ORDER BY ingestiontime DESC
         ) AS rn
-    FROM zimmpurgdocitem R
-    WHERE 
-        R.purchasingdocument IS NOT NULL 
-        AND R.purchasingdocumentitem IS NOT NULL
-        AND R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
+    FROM zimmpurgdocitem 
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_zimmpurgdocitem)
+        AND purchasingdocument IS NOT NULL 
+        AND purchasingdocumentitem IS NOT NULL
 )
 
 /* =========================

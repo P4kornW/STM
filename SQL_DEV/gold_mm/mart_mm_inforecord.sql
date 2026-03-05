@@ -12,7 +12,7 @@ WITH silver_ziinforecorgdata_cte AS (
         isinsert,
         changetype
     FROM silver_mm_ziinforecorgdata
-    WHERE isdelete = false
+    WHERE isdelete = false 
 ),
 
 silver_zimmpurgdocitem_cte AS (
@@ -42,6 +42,7 @@ silver_zimmpurgdocitem_cte AS (
     FROM silver_mm_zimmpurgdocitem
     WHERE isdelete = false
       AND purchasingdocumentdeletioncode IS NULL
+      AND ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from mart_mm_inforecord)
 ),
 
 silver_zmmpurchasingdoc_cte AS (

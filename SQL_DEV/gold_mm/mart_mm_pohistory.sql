@@ -18,7 +18,9 @@
         isupsert,
         isdelete,
         changetype
-    FROM silver_mm_zimmpurdochist WHERE isdelete = false
+    FROM silver_mm_zimmpurdochist 
+    WHERE isdelete = false
+        AND ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from mart_mm_pohistory)
 
 ),
 

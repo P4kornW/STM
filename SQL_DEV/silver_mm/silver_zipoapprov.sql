@@ -2,18 +2,19 @@ WITH
 
 Ranked_Raw_Batch AS (
     SELECT
-        R.*,
+        *,
         ROW_NUMBER() OVER (
-            PARTITION BY R.purchasingdocument
+            PARTITION BY purchasingdocument
             ORDER BY 
-                R.approvedate DESC,
-                R.approvetime DESC,
-                R.ingestiontime DESC
+                approvedate DESC,
+                approvetime DESC,
+                ingestiontime DESC
         ) AS rn
-    FROM zipoapprov R
-    WHERE
-        R.purchasingdocument IS NOT NULL AND approvercode = '00'
-        AND R.ingestiontime >= (current_timestamp() - INTERVAL 1 DAY)
+    FROM zipoapprov 
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_zipoapprov)
+        AND purchasingdocument IS NOT NULL 
+        AND approvercode = '00'
+        
         
 )
 

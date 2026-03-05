@@ -9,8 +9,8 @@ WITH Ranked_Raw_Batch AS (
             ORDER BY ingestiontime DESC
         ) AS rn
     FROM zigoodsmvmtdoc
-    WHERE 
-        materialdocumentkey1 IS NOT NULL 
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_zigoodsmvmtdoc)
+        AND materialdocumentkey1 IS NOT NULL 
         AND materialdocumentkey2 IS NOT NULL
         AND materialdocumentkey3 IS NOT NULL
         AND materialdocumentkey4 IS NOT NULL

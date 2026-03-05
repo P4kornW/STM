@@ -8,8 +8,8 @@ WITH Ranked_Raw_Batch AS (
             ORDER BY ingestiontime DESC
         ) AS rn
     FROM zipricingelement
-    WHERE 
-        pricingdocument IS NOT NULL 
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_zipricingelement)
+        AND pricingdocument IS NOT NULL 
         AND pricingdocumentitem IS NOT NULL
         AND pricingprocedurestep IS NOT NULL
         AND pricingprocedurecounter IS NOT NULL

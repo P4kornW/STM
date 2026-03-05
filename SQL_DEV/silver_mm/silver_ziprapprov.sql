@@ -6,8 +6,8 @@ WITH Ranked_Raw_Batch AS (
             ORDER BY ingestiontime DESC
         ) AS rn
     FROM ziprapprov
-    WHERE
-        tabkey IS NOT NULL
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_ziprapprov)
+        AND tabkey IS NOT NULL
         -- AND isdelete = false
 )
 

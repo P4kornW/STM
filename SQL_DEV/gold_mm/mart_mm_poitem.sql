@@ -32,7 +32,10 @@ WITH silver_zimmpurgdocitem_cte AS (
         isdelete,
         isinsert,
         changetype
-    FROM silver_mm_zimmpurgdocitem WHERE isdelete = false  AND purchasingdocumentdeletioncode IS NULL
+    FROM silver_mm_zimmpurgdocitem 
+    WHERE isdelete = false 
+     AND purchasingdocumentdeletioncode IS NULL
+     AND ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from mart_mm_poitem)
 ),
 
 silver_zipritem_cte AS (

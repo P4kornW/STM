@@ -8,8 +8,8 @@ WITH Ranked_Raw_Batch AS (
             ORDER BY ingestiontime DESC
         ) AS rn
     FROM zimmprgdocsl
-    WHERE 
-        purchasingdocument IS NOT NULL 
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_zimmprgdocsl)
+        AND purchasingdocument IS NOT NULL 
         AND purchasingdocumentitem IS NOT NULL
         AND scheduleline IS NOT NULL
 )

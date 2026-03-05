@@ -8,8 +8,8 @@ WITH Ranked_Raw_Batch AS (
             ORDER BY ingestiontime DESC
         ) AS rn
     FROM ziinforecorgdata
-    WHERE 
-        purchasinginforecord IS NOT NULL 
+    WHERE ingestiontime >= (select coalesce(max(ingestiontime),'1900-01-01') - INTERVAL 6 HOUR from silver_mm_ziinforecorgdata)
+        AND purchasinginforecord IS NOT NULL 
         AND purchasingorganization IS NOT NULL
         AND purchasinginforecordcategory IS NOT NULL
         
